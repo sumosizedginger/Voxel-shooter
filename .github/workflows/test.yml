@@ -1,0 +1,27 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The harness (tests/harness.mjs findChrome) honors CHROME_PATH; the
+      # ubuntu runner ships Chrome stable preinstalled at this path.
+      - name: Run full suite (unit specs + browser smoke test)
+        run: npm test
+        env:
+          CHROME_PATH: /usr/bin/google-chrome

@@ -1,5 +1,7 @@
 # Voxel Engine Kit
 
+[![tests](https://github.com/sumosizedginger/My-Engine/actions/workflows/test.yml/badge.svg)](https://github.com/sumosizedginger/My-Engine/actions/workflows/test.yml)
+
 A zero-build, offline-first three.js voxel engine layer: a renderer with an HDR
 bloom/vignette/film composer, voxel meshing with baked ambient occlusion,
 character-part builders, particle and motion-smear FX, a WebAudio synth,
