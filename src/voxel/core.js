@@ -4,10 +4,12 @@
 
 import * as THREE from 'three';
 
+/** The voxel-map key format: integer coordinates joined as `"x,y,z"`. */
 export function vkey(x, y, z) {
     return x + ',' + y + ',' + z;
 }
 
+/** Deterministic pseudo-random [0,1) from a position — for stable jitter/speckling, not Math.random(). */
 export function hash3(x, y, z) {
     const s = Math.sin(x * 127.1 + y * 311.7 + z * 74.7) * 43758.5453;
     return s - Math.floor(s);

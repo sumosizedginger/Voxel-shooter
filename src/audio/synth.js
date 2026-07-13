@@ -5,6 +5,7 @@
 let audioCtx = null;
 let noiseBuf = null;
 
+/** Creates the AudioContext + noise buffer. Idempotent. Call from a user gesture (browsers require one). */
 export function initAudio() {
     if (audioCtx) return;
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -18,6 +19,7 @@ export function initAudio() {
 //    these synced with the settings module; synth stays dependency-free. ──
 const _vols = { master: 1, sfx: 1, music: 1 };
 
+/** Merge {master?, sfx?, music?} into the volume state; playTone/playNoise multiply their vol by master*channel. */
 export function setVolumes(v) {
     Object.assign(_vols, v);
 }
@@ -26,6 +28,7 @@ function gainFor(channel) {
     return _vols.master * (_vols[channel] != null ? _vols[channel] : 1);
 }
 
+/** An oscillator gliding f0->f1 over dur seconds while gain decays to ~0; optional lowpass at lp Hz. No-ops before initAudio(). */
 export function playTone(type, f0, f1, dur, vol, lp, channel = 'sfx') {
     if (!audioCtx) return;
     vol = vol * gainFor(channel);
@@ -51,6 +54,7 @@ export function playTone(type, f0, f1, dur, vol, lp, channel = 'sfx') {
     o.stop(t + dur + 0.02);
 }
 
+/** Plays the shared noise buffer through a biquad filter, optionally sweeping f0->f1, Q defaulting to 0.8. */
 export function playNoise(dur, vol, fType, f0, f1, q, channel = 'sfx') {
     if (!audioCtx) return;
     vol = vol * gainFor(channel);

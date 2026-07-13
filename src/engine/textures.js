@@ -20,6 +20,7 @@ export const TEXTURE_URLS = {
     titleScreen: 'src/assets/textures/title-screen.png'
 };
 
+/** Cached-by-key texture loader with RepeatWrapping on both axes; returns null for an unknown key. */
 export function loadTexture(key, opts = {}) {
     if (cache[key]) return cache[key];
     const url = TEXTURE_URLS[key];
@@ -32,6 +33,7 @@ export function loadTexture(key, opts = {}) {
     return tex;
 }
 
+/** Theme-name switch (tech-lab / alien-ship+mothership-core / else asphalt-concrete) with a hardcoded repeat. */
 export function groundTextureForTheme(theme) {
     if (theme === 'tech-lab') return loadTexture('groundLab', { repeat: [20, 4] });
     if (theme === 'alien-ship' || theme === 'mothership-core') {
@@ -40,6 +42,7 @@ export function groundTextureForTheme(theme) {
     return loadTexture('groundAsphalt', { repeat: [30, 4] });
 }
 
+/** Theme-name switch, same shape as groundTextureForTheme() but for wall tiles. */
 export function wallTextureForTheme(theme) {
     if (theme === 'tech-lab') return loadTexture('wallLab', { repeat: [2, 4] });
     if (theme === 'alien-ship' || theme === 'mothership-core') {

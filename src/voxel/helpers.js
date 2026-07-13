@@ -5,6 +5,11 @@
 import * as THREE from 'three';
 import { vkey } from './core.js';
 
+/**
+ * Fill an elliptical disc of voxels at height `cy`, centered `(cx,cz)` with
+ * radii `(rx,rz)`. Either radius below 0.4 degenerates to a single voxel at
+ * `(round(cx), cy, round(cz))` rather than a zero-area ellipse.
+ */
 export function fillRow(m, cy, rx, rz, cx, cz, color) {
     if (rx < 0.4 || rz < 0.4) {
         m.set(vkey(Math.round(cx), cy, Math.round(cz)), color);
@@ -20,6 +25,7 @@ export function fillRow(m, cy, rx, rz, cx, cz, color) {
     }
 }
 
+/** Stack of fillRow() calls from cy-ry to cy+ry, narrowing radii by the ellipsoid profile. */
 export function fillEllipsoid(m, cx, cy, cz, rx, ry, rz, color) {
     const y0 = Math.round(cy - ry), y1 = Math.round(cy + ry);
     for (let y = y0; y <= y1; y++) {
@@ -29,6 +35,7 @@ export function fillEllipsoid(m, cx, cy, cz, rx, ry, rz, color) {
     }
 }
 
+/** Inclusive-bounds axis-aligned box fill. */
 export function fillBox(m, x0, x1, y0, y1, z0, z1, color) {
     for (let x = x0; x <= x1; x++) {
         for (let y = y0; y <= y1; y++) {
@@ -39,6 +46,11 @@ export function fillBox(m, x0, x1, y0, y1, z0, z1, color) {
     }
 }
 
+/**
+ * Re-color existing voxels in place: `fn(x,y,z,color)` runs over every entry
+ * and a returned color hex overwrites it (null/undefined/same color leaves it
+ * untouched). Never adds new voxels — it can't paint outside what's filled.
+ */
 export function paint(m, fn) {
     for (const [k, cv] of m) {
         const p = k.split(',');
@@ -48,6 +60,7 @@ export function paint(m, fn) {
 }
 
 let _sc = null;
+/** Multiply a hex color's RGB by `f` (clamped to 1.0/channel); returns a new hex. */
 export function shadeHex(hex, f) {
     if (!_sc) _sc = new THREE.Color();
     _sc.setHex(hex);

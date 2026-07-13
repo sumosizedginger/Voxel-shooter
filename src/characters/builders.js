@@ -321,6 +321,7 @@ export function buildHead(palette = SUMO_PALETTE, profile = HEAD_PROFILE, option
     return m;
 }
 
+/** @param {number} sideSign 1 = right arm, -1 = left (mirrors the wrist/hand detail). */
 export function buildArm(palette = SUMO_PALETTE, sideSign = 1) {
     const m = new Map();
     const skin = palette.skin;
@@ -353,6 +354,10 @@ export function buildArm(palette = SUMO_PALETTE, sideSign = 1) {
     return m;
 }
 
+/**
+ * @param {number} sideSign 1 = right leg, -1 = left.
+ * @param {object} options clothingMode: only 'belt'/'mawashi' leave the leg bare; everything else trousers it.
+ */
 export function buildLeg(palette = SUMO_PALETTE, sideSign = 1, options = {}) {
     const m = new Map();
     const skin = palette.skin;
@@ -399,7 +404,11 @@ export function buildLeg(palette = SUMO_PALETTE, sideSign = 1, options = {}) {
     return m;
 }
 
-/** Build glowing eye meshes parented later to headPivot (enemies). */
+/**
+ * Build glowing eye meshes parented later to headPivot (enemies).
+ * @returns {{left:THREE.Mesh, right:THREE.Mesh, mat:THREE.Material, geo:THREE.BufferGeometry}}
+ *   Caller owns mat/geo disposal.
+ */
 export function buildGlowEyes(palette) {
     const color = palette.eyeGlow || 0xff4040;
     const mat = new THREE.MeshStandardMaterial({
