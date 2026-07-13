@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Voxel Engine Kit — smoke test</title>
+    <link rel="icon" href="data:,">
     <style>
         html, body { margin: 0; height: 100%; background: #0a0514; overflow: hidden; font-family: ui-monospace, monospace; }
         #hud {
@@ -30,7 +31,7 @@
     <div id="hud">loading…</div>
     <script type="module">
         import * as THREE from 'three';
-        import { scene, camera, composer, onResize } from './src/engine/renderer.js';
+        import { scene, camera, renderer, composer, onResize } from './src/engine/renderer.js';
         import { initLights } from './src/engine/lights.js';
         import { ParticleSystem } from './src/engine/particles.js';
         import { fillBox, fillEllipsoid } from './src/voxel/helpers.js';
@@ -89,6 +90,10 @@
         const hud = document.getElementById('hud');
         const clock = new THREE.Clock();
         let angle = 0;
+
+        // Test hook: the smoke spec reads renderer.info to confirm frames are
+        // actually drawing (not just that the page loaded without errors).
+        window.__engineKit = { renderer, composer, scene };
 
         function frame() {
             const dt = Math.min(0.05, clock.getDelta());
