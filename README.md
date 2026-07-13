@@ -1,11 +1,12 @@
 # Voxel Engine Kit
 
-The genre-neutral platform layer lifted out of the voxel beat-em-up. It is the
-part that is **not** a brawler: rendering, voxel art, audio, UI plumbing, and two
-combat primitives that were deliberately written to outlive the belt-scroller.
-Drop it into a new project and you have a running, good-looking, offline voxel
-sandbox on day one — then build *your* game (shmup, top-down adventure, whatever)
-on top.
+A zero-build, offline-first three.js voxel engine layer: a renderer with an HDR
+bloom/vignette/film composer, voxel meshing with baked ambient occlusion,
+character-part builders, particle and motion-smear FX, a WebAudio synth,
+localStorage-backed settings, quality tiers, and two genre-neutral combat
+primitives — swept AABB collision and a vectorized (8-way) hitbox. Drop it into
+a new project and you have a running, good-looking voxel sandbox on day one —
+then build *your* game (shmup, top-down adventure, brawler, whatever) on top.
 
 This is a starting point, not a framework. Copy it, rename it, hack it.
 
@@ -126,11 +127,14 @@ each axis so one fast step can't jump through a thin wall.
   lives on. You still owe the big content system — rooms, items-as-progression,
   puzzles — none of which is here.
 
-## Provenance
+## Built with this kit
 
-Extracted from the voxel beat-em-up (`neon-rot-unbound`). The vectorized
-hitbox and collision module were added there first (round-10) — the game runs on
-the same code, with its facing driven `±X` so belt-scroller feel is unchanged.
+**[Neon Rot: Unbound](https://github.com/sumosizedginger/neon-rot-unbound)** — a
+synthwave-horror voxel beat-'em-up with 3 playable heroes, 11 levels/bosses, and 3
+endings — is where this kit's vectorized hitbox and collision module were first
+proven, running real belt-scroller combat with `facingVec` pinned to `±X`. The
+repo is private while the game is in development; a public build (GitHub Pages /
+itch.io) is planned, and this link will go live then.
 
 MIT licensed (see `LICENSE`). Vendored three.js keeps its own MIT license under
 `lib/three/`.
