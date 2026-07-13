@@ -74,6 +74,26 @@ export function writeStepSummary(sinks, extraNotes = []) {
     try { fs.appendFileSync(file, md); } catch (e) { /* best-effort only */ }
 }
 
+/** Escape a string for a GitHub Actions workflow-command field (::error::). */
+function escapeAnnotation(s) {
+    return String(s).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+}
+
+/** Emit one ::error:: workflow command per failed assertion when running in
+ * Actions, so failures show up in the (publicly visible, no-login-required)
+ * Annotations panel — unlike raw step logs and the job summary, which both
+ * require signing in on this repo. No-op outside Actions. */
+export function printErrorAnnotations(sinks) {
+    if (!process.env.GITHUB_ACTIONS) return;
+    for (const s of sinks) {
+        for (const r of s.results) {
+            if (r.pass) continue;
+            console.log('::error title=' + escapeAnnotation('[' + s.label + '] ' + r.name)
+                + '::' + escapeAnnotation(r.detail || '(no detail)'));
+        }
+    }
+}
+
 /** A tiny assertion sink shared across specs. */
 export function createSink(label) {
     const results = [];
