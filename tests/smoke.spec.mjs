@@ -19,13 +19,20 @@ const PAGES = [
     { path: 'examples/voxel-showcase.html', hudSelector: '#hud', mustContain: ['voxel-showcase example', 'quality tier'] }
 ];
 
-async function checkPage(browser, base, entry, t) {
-    const page = await browser.newPage();
-    const errors = [];
-    page.on('pageerror', (e) => errors.push(String(e)));
-    page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
-
+async function checkPage(launchOpts, base, entry, t) {
+    // A fresh browser per page, not a shared one with multiple newPage()
+    // calls: under SwiftShader (software WebGL), reusing one browser across
+    // several WebGL-heavy pages reliably hung on the second navigation, both
+    // on a local Windows box and on GitHub's Linux runners. A short-lived
+    // browser per page costs a few extra seconds of launch overhead but
+    // sidesteps that class of flakiness entirely.
+    const browser = await puppeteer.launch(launchOpts);
     try {
+        const page = await browser.newPage();
+        const errors = [];
+        page.on('pageerror', (e) => errors.push(String(e)));
+        page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()); });
+
         await page.setViewport({ width: 1280, height: 720 });
         // SwiftShader (software WebGL, needed on GPU-less CI runners) is much
         // slower than hardware rendering — give the first frame room to land.
@@ -54,7 +61,7 @@ async function checkPage(browser, base, entry, t) {
         const canvasOk = await page.evaluate(() => !!document.querySelector('canvas'));
         t.ok(entry.path + ': canvas present', canvasOk);
     } finally {
-        await page.close();
+        await browser.close();
     }
 }
 
@@ -68,35 +75,31 @@ export async function run(t) {
     }
 
     const server = await startServer(PORT);
-    let browser;
     try {
         // GPU-less CI runners report GL_VENDOR/GL_RENDERER "Disabled" and
         // refuse WebGL under --use-gl=angle (no real GPU to back it) — use
         // SwiftShader software rendering there (Chromium's own CI does the
         // same on Linux; --enable-unsafe-swiftshader is required on modern
         // Chrome to actually allow the fallback). Local dev machines have a
-        // real GPU, so keep the faster hardware path there — SwiftShader was
-        // flaky across a second WebGL context on at least one Windows setup.
+        // real GPU, so keep the faster hardware path there.
         const glArgs = process.env.CI
             ? ['--use-gl=swiftshader', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']
             : ['--use-gl=angle'];
-        browser = await puppeteer.launch({
+        const launchOpts = {
             executablePath: exe,
             headless: 'new',
             args: [...glArgs, '--ignore-gpu-blocklist', '--no-sandbox', '--disable-dev-shm-usage']
-        });
-    } catch (e) {
-        t.ok('Chrome launches (executablePath=' + exe + ')', false, String(e && e.message || e));
-        await server.close();
-        return;
-    }
+        };
 
-    try {
         for (const entry of PAGES) {
-            await checkPage(browser, server.url, entry, t);
+            try {
+                await checkPage(launchOpts, server.url, entry, t);
+            } catch (e) {
+                t.ok(entry.path + ': loaded and checked without crashing', false,
+                    String(e && e.message || e));
+            }
         }
     } finally {
-        await browser.close();
         await server.close();
     }
 }
