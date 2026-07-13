@@ -27,6 +27,12 @@ npm run test:unit  # unit specs only, <1s, no Chrome required
 Set `CHROME_PATH` if `tests/harness.mjs`'s `findChrome()` doesn't locate your
 browser automatically.
 
+**CI only runs `npm run test:unit`.** GitHub's hosted runners have no GPU, and
+headless Chrome's WebGL smoke test proved unreliable there across several
+attempts (see the `fix:` commit history around the CI workflow if you're
+curious). Run `npm test` locally — it's the real check for anything that
+touches rendering, and it's required before tagging a release.
+
 ## Code style
 
 Match the neighbors: 4-space indent, LF line endings, no semicolon-free
@@ -39,7 +45,7 @@ already shows.
 ## Pull requests
 
 - One logical change per PR; keep the diff reviewable.
-- Run `npm test` locally before opening — CI runs the same suite.
+- Run `npm test` locally before opening (CI only runs the unit subset — see above).
 - If you touch a public export's behavior, update
   [docs/API.md](docs/API.md) and `CHANGELOG.md` in the same PR.
 - New genre-neutral capability → add or extend an example
