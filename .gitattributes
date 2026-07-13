@@ -1,0 +1,6 @@
+* text=auto eol=lf
+
+lib/three/*.min.js linguist-vendored
+lib/three/addons/**/*.js linguist-vendored
+docs/media/* binary
+*.png binary
