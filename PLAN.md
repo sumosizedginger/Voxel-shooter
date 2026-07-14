@@ -1,16 +1,24 @@
-# R-Type III Conversion Plan
+# R-Type III Conversion Plan — GUMOI: The Lattice Break
 
 **Mission:** Convert this repo (the Voxel Engine Kit) into a horizontal-scrolling
-R-Type III–style shmup. This document is the authoritative build plan. It was
+R-Type III–style shmup: **GUMOI: The Lattice Break**. The narrative is canon —
+see [docs/story-bible.html](docs/story-bible.html) and
+[NARRATIVE_PLAN.md](NARRATIVE_PLAN.md), which reconciles the story with this
+plan and **supersedes parts of it** (damage model, cannon tiers, Force design,
+campaign structure — see NARRATIVE_PLAN §2/§8). This document remains the
+authoritative build plan for everything the narrative plan doesn't override. It was
 written after a full read of the engine source — file references and API
 signatures below are real, not guessed. Follow the phases in order; each has a
 definition of done.
 
-**Companion documents** (same authority as this file):
+**Companion documents:**
+[NARRATIVE_PLAN.md](NARRATIVE_PLAN.md) + [docs/story-bible.html](docs/story-bible.html)
+(story canon and reconciliation — highest authority),
 [SHIP_PLAN.md](SHIP_PLAN.md) (player ship asset), [ASSETS_PLAN.md](ASSETS_PLAN.md)
 (enemy roster, boss, Force/pickups, bullet visuals, terrain set, parallax),
-and [LEVELS_PLAN.md](LEVELS_PLAN.md) (campaign structure, level data schema,
-formation grammar, pacing/fairness rules, the five stages, stage-lint test).
+and [LEVELS_PLAN.md](LEVELS_PLAN.md) (level data schema, formation grammar,
+pacing/fairness rules, stage-lint test; its five-stage table is superseded by
+the bible's ten levels via NARRATIVE_PLAN §5).
 
 **Status tracking:** As you complete each phase, check its boxes here and note
 deviations in the "Deviation log" at the bottom. A follow-up review session will
@@ -38,11 +46,13 @@ verify the work against this document.
 5. **The game page is `game.html`** at repo root. `index.html` remains the
    engine smoke test. (We may promote game.html to index.html at the very end —
    not before.)
-6. **Story is not designed yet.** Keep every content system data-driven
-   (levels, waves, dialogue hooks) so narrative can be added later without
-   refactoring. The cinematic camera rig in `renderer.js`
-   (`setCineCamera`/`updateCineCamera`) is already built for cutscenes — leave
-   hooks for it, don't build cutscenes yet.
+6. **The story has landed.** The narrative is
+   [docs/story-bible.html](docs/story-bible.html), integrated via
+   [NARRATIVE_PLAN.md](NARRATIVE_PLAN.md). Content systems stay data-driven
+   exactly as planned — the bible's levels, lines, and codex are authored as
+   data in those systems. The cinematic camera rig in `renderer.js`
+   (`setCineCamera`/`updateCineCamera`) is the cutscene backbone
+   (NARRATIVE_PLAN §4 S3); cutscenes are built in Phase 9A, not before.
 
 ---
 
@@ -238,85 +248,94 @@ High scores already work via `addScore`. Difficulty multipliers
   checkpoint; terrain visuals and collision line up exactly (debug overlay
   draws collision boxes as wireframes).
 
-### Phase 4 — Wave Cannon + Force pod + power-ups (the R-Type identity)
+### Phase 4 — Siren Pulse + the Witness + the Council (the R-Type identity)
 
-Visuals for everything in this phase: ASSETS_PLAN.md §4 (Force/bits/pickups)
-and §5 (beam and bullet families).
-- [ ] **Wave Cannon** (`src/shmup/wavecannon.js`, gauge logic import-clean +
-      spec): hold fire to charge, 0→1 in 1.5s (stage 1), continue to 2 in
-      another 1.5s (stage 2, R-Type III signature). Release fires a piercing
-      beam: stage 1 = thick bolt (dmg 8, pierces 2 enemies), stage 2 =
-      full-height-ish beam (dmg 20, pierces everything, brief screen shake).
-      Charge gauge on HUD. Charging while moving is allowed; basic rapid fire
-      is disabled while charging (hold = charge, tap = shot: distinguish by
-      hold duration < 0.25s on release).
-- [ ] **Force pod** (`src/shmup/force.js`): implement **Round Force** only
-      (Shadow/Cyclone are Phase 9+ content, keep a `type` field). States:
-      `DOCKED_FRONT`, `DOCKED_REAR`, `DETACHED`.
-      - Docked: sits on the ship's nose (or tail), contact-damages enemies
-        (continuous, ~10 dmg/s), blocks/absorbs enemy bullets that hit its
-        radius (r ≈ 0.8), and changes the ship's shot per Force level.
-      - Detach (button): launches forward ~12 u/s decaying to a hold position;
-        detached Force keeps firing straight, still blocks bullets, still
-        contact-damages, is affected by terrain via `resolveMove` (slides,
-        never dies).
-      - Recall (button again): eases back toward the ship, docks on contact —
-        front or rear depending on which side it approaches from.
-      - Force levels 1–3 (crystal pickups): level gates shot patterns
-        (1: straight; 2: two-way diagonal; 3: wide three-way — exact patterns
-        are tunable, structure isn't).
-- [ ] **Power-ups** (`src/shmup/powerups.js`): POW-armor carrier enemy (slow,
-      tanky, distinct look) drops a crystal on death; floating pickups drift
-      left. Types: crystal (Force level up / spawns Force if absent), `M`
-      missiles (adds a homing missile pair every 2s), `B` bit (small orbiting
-      helper, max 2, absorbs bullets), `S` speed (+1.5 u/s, max 4 stacks).
-- **Done when:** all four systems work together; losing a life keeps the Force
-  (it detaches and drifts — it can be re-grabbed by the respawned ship, real
-  R-Type behavior) but clears speed-ups to base.
+**Amended by NARRATIVE_PLAN §2 (C3, C4, C5) — bible names and specs apply.**
+Visuals: ASSETS_PLAN.md §4/§5 with NARRATIVE_PLAN §1 renames + C7 violet rule.
+- [ ] **Siren Pulse** (`src/shmup/wavecannon.js`, gauge logic import-clean +
+      spec): hold to charge through **three tiers** (~1.2s per tier). Tier 1
+      fast/weak bolt, tier 2 workhorse piercing bolt, tier 3 siege beam that
+      breaks boss guards, requires **Witness level ≥ 2**, and locks the Vessel
+      in place 1.4s on release. Charge gauge on HUD (three-segment). Hold =
+      charge, tap = shot (release under 0.25s).
+- [ ] **Hammer Round** (`src/shmup/hammer.js`): the secondary — 5-round spread
+      at close range, single slug at long range (range decided by nearest
+      enemy distance at fire time); slug knockback on bosses, 3 stacked slugs
+      = stagger → weakpoint window. Weapon-switch input, 0.4s swap (C6).
+- [ ] **The Witness** (`src/shmup/force.js`): states `DOCKED_FRONT`,
+      `DOCKED_REAR`, `DOCKED_ABOVE`, `DOCKED_BELOW`, `DETACHED` (orbit).
+      Absorbs small fire; reflects medium fire; intercepts one boss projectile
+      per cooldown (3s unavailable after). Levels 1–3 via Witness shards:
+      L1 shield, L2 return-fire pulse on absorption (+ enables tier-3 Pulse),
+      L3 short-range melee stab that breaks guards. Detach/recall as
+      originally specced (launch forward, terrain-slides via `resolveMove`,
+      never dies, re-grabbable after death). **Mirror Counter** (double-tap
+      dock key): 0.5s reflect field, 2× return speed — built here, taught in
+      Level 5.
+- [ ] **The Council drones** (`src/shmup/drones.js`): 6 types (Needle, Mirror,
+      Cloak, Ghost, Scribe, Prophet — behaviors per bible §03/§14), max 2
+      equipped via pre-mission loadout; mid-mission switch costs a Witness
+      charge. Build Prophet + Needle first (L1–L2 need them); the rest land
+      with the levels that teach them.
+- [ ] **Pickups** (`src/shmup/powerups.js`): carrier enemy drops a **Witness
+      shard** on death; `B` grants Whisper Bits (max 2, weak homing, no
+      absorb). No speed-ups (C4). No missiles (Prophet Drone covers homing).
+- **Done when:** all systems work together; losing a life keeps the Witness
+  (detaches and drifts, re-grabbable); hull integrity (C2) drives the scar
+  glow; tier-3 Pulse correctly refuses to fire below Witness level 2.
 
 ### Phase 5 — Level director + Stage 1
 
 This phase is specified in detail by **[LEVELS_PLAN.md](LEVELS_PLAN.md)** —
 data schema (§2), formation grammar (§3), pacing (§4), fairness rules (§5),
-Stage 1 brief (§6), stage-lint spec (§7), authoring tools (§8).
+stage-lint spec (§7), authoring tools (§8). The level authored here is
+**Level 01, The Beige Slope** (bible §04 via NARRATIVE_PLAN §5–§6) — its
+terrain is the bible's organic tunnel, its recovery pickups are Witness
+shards, and its cast/interrupt elite enemies land with story system S2 in
+Phase 9A (author their waves now with plain fire; S2 upgrades them).
 - [ ] `src/shmup/level/director.js` (import-clean core + spec): the FULL
       trigger vocabulary from LEVELS_PLAN §2 (wave, pickup, checkpoint,
       speed, lock, dialogue no-op, boss, end), fired once each when
       `atX <= scrollX`; `reset(toX)` for checkpoint rewind (§Phase 3),
       including the `recoveryOnly` pickup flag (LEVELS_PLAN §5 F1).
 - [ ] `src/shmup/level/formations.js`: the formation library (LEVELS_PLAN §3).
-- [ ] `src/shmup/level/stage1.js`: Stage 1 authored per LEVELS_PLAN §4–§6
-      (~10–14 waves, 2 checkpoints with recovery pickups, escort/POW cadence,
-      lock gauntlet, pre-boss breather). Parallax: 2–3 far layers at z ∈
-      [−10, −30] with `userData.scrollRate` 0.2–0.6 (ASSETS_PLAN §7).
+- [ ] `src/shmup/level/level01.js`: Level 01 authored per LEVELS_PLAN §4–§5
+      pacing/fairness + bible §04 content (~10–14 waves, 2 checkpoints with
+      recovery shards, carrier cadence, lock gauntlet, pre-boss breather).
+      Parallax: 2–3 far layers at z ∈ [−10, −30] with `userData.scrollRate`
+      0.2–0.6 (ASSETS_PLAN §7), beige-organic palette.
 - [ ] `tests/stagelint.spec.mjs` (LEVELS_PLAN §7) + director spec.
 - [ ] Authoring tools (LEVELS_PLAN §8): `?stage=&x=` URL params, `?god=1`,
       trigger timeline in the debug overlay.
-- **Done when:** Stage 1 plays start → boss trigger with difficulty applied
+- **Done when:** Level 01 plays start → boss trigger with difficulty applied
   from `difficultyMultipliers()`, checkpoint rewind replays the right waves
-  and spawns the recovery crystal only after a death, and stage-lint +
+  and spawns the recovery shard only after a death, and stage-lint +
   director specs pass.
 
-### Phase 6 — Boss
-- [ ] `src/shmup/bosses/boss1.js`: one multi-phase boss. Structure (this is
-      the part the old brawler's boss machine shape informs): a state machine
-      of named phases with `{enter, update(dt), exit, hpGate}` transitioning
-      at HP thresholds; **destructible parts** (each an entity with its own hp
-      registered in `world.enemies`) whose destruction changes attacks; a weak
-      core that's only vulnerable in some phases (classic R-Type: shoot the
-      glowing core). Model, parts breakdown, and size (**16–20 world units
-      long** — fills the locked screen, not multiple screens) per
-      ASSETS_PLAN.md §3.
-- [ ] Boss death: chained explosions over ~2.5s, big score, level end → stage
-      clear tally (add `stageClearBonus` scoring) → back to TITLE (loop later).
-- **Done when:** the full Stage-1 run is winnable and losable, and boss HP
-  respects difficulty multipliers.
+### Phase 6 — Boss 01: The Beige Slope
+- [ ] `src/shmup/bosses/boss01.js`: the wall (bible §04 boss block is the
+      spec — advancing wall, mouth array, announced-emotion casts, slow
+      stacking, three phases including the three-wall split). Structure: a
+      state machine of named phases with `{enter, update(dt), exit, hpGate}`;
+      **destructible/targetable parts** (each mouth an entity with its own
+      state registered in `world.enemies`) — ASSETS_PLAN §3's part/core
+      architecture maps onto the mouth array directly. The mouth-cast
+      announcements use S2 when it lands (Phase 9A); until then, plain
+      timed telegraphs with the same timings.
+- [ ] Boss death: chained explosions over ~2.5s, big score, level end → level
+      clear tally (add `levelClearBonus` scoring) → back to TITLE (campaign
+      flow lands in Phase 9A).
+- **Done when:** the full Level-01 run is winnable and losable, boss HP
+  respects difficulty multipliers, and the slow-stack → pinned failure state
+  works (4 stacks = immobile, wall catches up, death).
 
 ### Phase 7 — HUD + game flow + scoring
 - [ ] HUD (DOM overlay in `game.html`, styled like the smoke test's `#hud`):
-      score, hi-score (from `getScores()`), lives, wave-cannon gauge (two-stage
-      color), Force level, speed pips. `reduceFlashing` setting: no full-screen
-      flashes on death/beam when set.
+      score, hi-score (from `getScores()`), lives, **hull integrity bar**
+      (C2), Siren Pulse gauge (three-segment, C3), Witness level, equipped
+      Council drones + cooldowns. `reduceFlashing` setting: no full-screen
+      flashes on death/beam when set. Comms line pool (story system S1,
+      NARRATIVE_PLAN §4) is built in this phase.
 - [ ] Title screen (start, difficulty select writing `setSetting('difficulty')`),
       pause overlay, game-over → continue (restart at checkpoint, score reset)
       or quit; stage-clear score tally; `addScore` on game over/clear.
@@ -347,38 +366,46 @@ Stage 1 brief (§6), stage-lint spec (§7), authoring tools (§8).
       `tests/smoke.spec.mjs`.
 - [ ] Update `README.md` (game section) and `CHANGELOG.md`.
 
-### Phase 9 — Campaign buildout (Stages 2–5)
+### Phase 9 — Campaign buildout (the ten levels)
 
-Governed entirely by **LEVELS_PLAN.md §6 + §9**: one stage at a time, in
-order, each fully playable before the next starts. Per stage: new enemy
-types (built to ASSETS_PLAN's template + registered so `assets.spec` covers
-them) → terrain gimmick → triggers (stage-lint green) → boss → playtest pass
-against LEVELS_PLAN §4 pacing and §5 fairness rules.
-- [ ] Stage 2 — Derelict fleet (corridors, speed changes; shieldDrone, snake)
-- [ ] Stage 3 — Bio caverns (destructible terrain; spore, burrower)
-- [ ] Stage 4 — Foundry (timed crusher solids; fabricator, crusherPod)
-- [ ] Stage 5 — Core (remix + scroll reversal; boss-rush finale)
-- [ ] Campaign flow: stage clear → next stage; progress saved via
-      `setProgress`; game clear → credits placeholder + `addScore` with
-      clear bonus.
-- **Done when:** a full 5-stage credit can be cleared and every stage passes
-  stage-lint and the fairness rules.
+**Governed entirely by NARRATIVE_PLAN.md §4–§6** (story systems S1–S10, the
+ten-level table, and the 9A/9B/9C milestone split), with LEVELS_PLAN's
+schema, formations, F-rules, and stage-lint as the engineering substrate.
+Per level: new enemy reskins (ASSETS_PLAN template, registered so
+`assets.spec` covers them) → level systems → triggers (stage-lint green,
+with C8 flags where sanctioned) → boss → cutscenes/banter/codex → playtest
+against LEVELS_PLAN §4 pacing and §5 fairness.
+- [ ] **9A — Story core:** S2 cast/interrupt, S3 cutscene player, S4 codex
+      archive, title screen with the seal, pre-mission loadout screen,
+      campaign flow (level clear → next; progress via `setProgress`; L1
+      cutscenes + banter wired; boss 01 casts upgraded to S2).
+- [ ] **9B — Levels 02–05:** Induction Parrot (S5), Jester Unbound (S6),
+      Smooth Operator (S7 + profanity.js), Mirror Break (S8).
+- [ ] **9C — Levels 06–10:** Redemption Arc, Forge Wraith (S9 + heat.js),
+      Drift Wraith (asymmetry.js), Witness's Shadow (S8 extended),
+      Corrupted Seal (S10) → the BETWEEN ending → credits with the seal as
+      the final frame.
+- **Done when:** a full 10-level credit can be cleared, the BETWEEN plays as
+  scripted (cutscene 10B), every level passes stage-lint, and all codex
+  entries are reachable.
 
 ---
 
-## 4. R-Type III fidelity reference (design targets, tune freely)
+## 4. Mechanics reference (R-Type III base, amended by the bible)
+
+Rows marked ⟶ were superseded by NARRATIVE_PLAN §2 when the story landed.
 
 | Mechanic | Target behavior |
 |---|---|
-| One-hit death | Always. No health bar for the ship. |
-| Checkpoint rewind | Death rewinds the scroll; no mid-air respawn on bosses (respawn at boss start). |
-| Wave Cannon | 2-stage charge (R-Type III's addition over R-Type II's single stage). Hyper Drive mode (gauge overheat mechanic) is a stretch goal — leave a TODO, don't build in v1. |
-| Force pod | Invincible. Front/rear dock. Detach/recall. Blocks bullets. Contact damage. 3 levels via crystals. Round Force first; Shadow + Cyclone later. |
-| Bits | Max 2, orbit above/below, absorb bullets, weak contact damage. |
-| Missiles | Gentle homing, fire-and-forget pairs. |
-| Speed-ups | Stacking, reset on death. |
-| Scoring | Per-enemy values + stage-clear bonus; top-10 table already exists in `engine/settings.js`. |
-| Difficulty | `easy/normal/hard` from settings → `difficultyMultipliers()` applied at spawn. |
+| Damage model | ⟶ **Hull integrity bar (100)**, chip damage from bullets, **collisions stay lethal** (C2). Scar-glow is the damage display. |
+| Checkpoint rewind | Death rewinds the scroll; no mid-fight respawn on bosses (respawn at boss start). Death/respawn lines from the bible §15. |
+| Siren Pulse | ⟶ **3 charge tiers** (C3); tier 3 needs Witness ≥ 2 and locks the Vessel 1.4s. |
+| The Witness | ⟶ Invincible. **Four docks + orbit**, detach/recall, blocks bullets, contact damage, levels 1–3 via shards, Mirror Counter (C5). No Force types. |
+| Hammer Round | Secondary: close spread / long slug; 3 slugs = boss stagger (bible §03). |
+| Whisper Bits | Max 2, orbit, weak homing shots, no absorb (bible: pure DPS). |
+| Council drones | 6 seat drones, 2 slots, pre-mission loadout; switch costs a Witness charge (C4). Replaces missiles/speed-ups. |
+| Scoring | Per-enemy values + level-clear bonus + codex par times; top-10 table already exists in `engine/settings.js`. |
+| Difficulty | `easy/normal/hard` → `difficultyMultipliers()` at spawn. **Never scales boss clocks** (C10). |
 
 ## 5. Codebase gotchas (learned from reading the source — trust these)
 

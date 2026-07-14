@@ -1,5 +1,13 @@
 # Player Ship Asset Plan (companion to PLAN.md Phase 2)
 
+> **Amended (2026-07-14) by [NARRATIVE_PLAN.md](NARRATIVE_PLAN.md) §3:** the
+> ship is **the Vessel** (GUMOI's ship, bible §02). Constraints C1–C5, the
+> recipe structure, rig pattern, and tests below all stand. The palette
+> shifts to the Vessel's identity: dark hull with violet/blue kintsugi seam
+> lines (painted cracks) instead of the white R-9 homage; copper accents
+> replace red; and the seam lines carry emissive scar-glow meshes whose
+> intensity ramps with lost hull integrity (the damage display, C2).
+
 The plan for the player ship — an R-9 "Arrowhead"-inspired voxel fighter —
 covering authoring, palette, rig structure, glow, animation states, and tests.
 Written against the real kit APIs (`src/voxel/*`, `characters/builders.js`

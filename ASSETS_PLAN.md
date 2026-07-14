@@ -1,11 +1,20 @@
 # Enemy & World Asset Plan (companion to PLAN.md; sequel to SHIP_PLAN.md)
 
-Everything that isn't the player ship: the Stage-1 enemy roster, the boss,
-the Force pod / bits / pickups, bullet visuals, terrain set, and parallax
-layers. SHIP_PLAN.md is the **template** — its constraints C1–C5 (baked vertex
-colors can't glow → separate emissive meshes; `geo.center()`; +X facing;
-per-asset voxel scale; `paint()` recolors only) apply to every asset here and
-are not restated.
+> **Amended (2026-07-14) by [NARRATIVE_PLAN.md](NARRATIVE_PLAN.md):** the §2
+> roster survives as *behavioral archetypes*, reskinned per level theme (C9);
+> §3's "Gatekeeper" boss concept is replaced by the Beige Slope wall (bible
+> §04) — the part/core architecture transfers unchanged; the Force/pickups in
+> §4 are renamed and respecced (Witness, Council drones, Whisper Bits — C4/C5);
+> and R3's glow rule gains the violet reservation (C7): **violet is reserved
+> for weakpoints and GUMOI/Witness scar glow** — hostile fire stays
+> red/magenta, nothing else may be violet.
+
+Everything that isn't the player ship: the enemy archetype roster, boss
+architecture, the Witness / bits / pickups, bullet visuals, terrain set, and
+parallax layers. SHIP_PLAN.md is the **template** — its constraints C1–C5
+(baked vertex colors can't glow → separate emissive meshes; `geo.center()`;
++X facing; per-asset voxel scale; `paint()` recolors only) apply to every
+asset here and are not restated.
 
 ---
 

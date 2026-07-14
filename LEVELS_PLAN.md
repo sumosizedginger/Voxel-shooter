@@ -1,11 +1,17 @@
 # Level & Campaign Design Plan (companion to PLAN.md Phases 5, 6, and 9)
 
-How stages are structured, how waves are composed, how difficulty ramps, and
-what the full campaign looks like. PLAN.md Phase 5 builds the director +
-Stage 1 from this document; Phase 9 (added alongside this doc) builds the rest
-of the campaign. Story is still TBD — every stage has a placeholder theme
-chosen for *mechanical* variety; narrative reskins them later without
-restructuring.
+> **Superseded in part (2026-07-14):** the story landed —
+> [docs/story-bible.html](docs/story-bible.html) via
+> [NARRATIVE_PLAN.md](NARRATIVE_PLAN.md). **§1's five-stage campaign shape and
+> §6's stage table are replaced by the bible's ten levels (NARRATIVE_PLAN §5).**
+> Everything else in this document remains law: the data schema (§2, plus the
+> C8 lint flags), formation grammar (§3), pacing rules (§4), fairness rules
+> F1–F4 (§5 — recovery crystals are now Witness shards), stage-lint (§7), and
+> authoring tools (§8).
+
+How levels are structured, how waves are composed, and how difficulty ramps.
+PLAN.md Phase 5 builds the director + Level 01 from this document's systems;
+Phase 9 builds the rest of the campaign per NARRATIVE_PLAN.
 
 ---
 
@@ -116,11 +122,13 @@ Force, mid-gauntlet). We keep rewind-on-death but design it fair:
 - **F4 — Boss deaths respawn at the boss** (pre-boss breather checkpoint is
   mandatory and includes the F1 recovery), never rewind into the stage.
 
-## 6. The five stages
+## 6. The five stages — SUPERSEDED
 
-Per-stage: theme (placeholder), the mechanical identity, new enemies (built
-per ASSETS_PLAN's template when their stage is built — NOT in advance), and
-the gimmick. Full trigger authoring happens in that stage's build phase.
+> **This section is superseded by NARRATIVE_PLAN.md §5 (the bible's ten
+> levels).** It is kept for the reusable ideas embedded in it (the
+> shieldDrone-as-Force-tutorial trick, destructible terrain via
+> `removeSolid`, timed crusher solids, scroll reversal) — several of which
+> the bible's levels will want. Do not author these stages.
 
 | # | Theme (placeholder) | Mechanical identity | New enemies | Gimmick | Boss concept |
 |---|---|---|---|---|---|

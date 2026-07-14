@@ -1,4 +1,4 @@
-# Rtype3 — Voxel Engine Kit → R-Type III shmup conversion
+# Rtype3 — GUMOI: The Lattice Break (R-Type III–style shmup)
 
 **Public repo:** https://github.com/sumosizedginger/Voxel-shooter
 
@@ -7,12 +7,22 @@ authoritative, phase-ordered build plan (with locked architecture decisions,
 real API references, and a gotcha list) written after a full source read.
 Work the phases in order, check off items in PLAN.md as you finish them, and
 record any deviations in its Deviation log — a follow-up session will review
-the work against that document. Three companion specs carry equal authority,
-each referenced from the relevant PLAN.md phases:
-[SHIP_PLAN.md](SHIP_PLAN.md) (player ship asset),
-[ASSETS_PLAN.md](ASSETS_PLAN.md) (enemies, boss, Force/pickups, bullets,
-terrain, parallax), and [LEVELS_PLAN.md](LEVELS_PLAN.md) (campaign, level
-data schema, formations, pacing/fairness, stages 1–5).
+the work against that document.
+
+**The story is canon:** [docs/story-bible.html](docs/story-bible.html)
+(GUMOI: The Lattice Break) integrated via
+[NARRATIVE_PLAN.md](NARRATIVE_PLAN.md), which reconciles the bible with the
+engineering plans and **overrides them where they conflict** (damage model,
+Siren Pulse tiers, the Witness, Council drones, ten-level campaign — see its
+§2). All in-game story text comes verbatim from the bible — never paraphrase
+or soften it (NARRATIVE_PLAN §7).
+
+Companion specs, each referenced from the relevant PLAN.md phases:
+[SHIP_PLAN.md](SHIP_PLAN.md) (the Vessel),
+[ASSETS_PLAN.md](ASSETS_PLAN.md) (enemy archetypes, bosses, Witness/pickups,
+bullets, terrain, parallax), and [LEVELS_PLAN.md](LEVELS_PLAN.md) (level data
+schema, formations, pacing/fairness, stage-lint; its five-stage table is
+superseded by the bible's ten levels).
 
 ## Quick facts
 
