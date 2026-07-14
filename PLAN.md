@@ -167,18 +167,18 @@ High scores already work via `addScore`. Difficulty multipliers
 ## 3. Phases
 
 ### Phase 0 — Scaffolding
-- [ ] `game.html`: import map, fullscreen canvas comes from `renderer.js`
+- [x] `game.html`: import map, fullscreen canvas comes from `renderer.js`
       (it appends its own canvas on import), minimal HUD `<div>` overlay,
       "click / press any key to start" gate (needed anyway: `initAudio()`
       requires a user gesture).
-- [ ] `src/shmup/input.js`: keyboard (arrows + WASD move, Z/J fire & charge,
+- [x] `src/shmup/input.js`: keyboard (arrows + WASD move, Z/J fire & charge,
       X/K Force detach/recall, Esc/P pause) and Gamepad API (left stick/dpad,
       face buttons). Expose a polled snapshot: `input.axisX/axisY` (−1..1),
       `input.fire`, `input.firePressed`, `input.fireReleased`, `input.force`,
       `input.pause`. Edge-detection (`*Pressed/*Released`) computed once per
       frame in `input.update()`. Respect `getSetting('keybindings')` shape but
       defaults are fine for now.
-- [ ] `src/shmup/game.js`: the state machine (`TITLE → PLAYING → DEATH →
+- [x] `src/shmup/game.js`: the state machine (`TITLE → PLAYING → DEATH →
       RESPAWN → GAMEOVER`, plus `PAUSED`) and the main loop:
       `dt = Math.min(0.05, clock.getDelta())` (engine convention),
       `renderer.info.reset()` once per frame (the engine sets
@@ -191,43 +191,43 @@ High scores already work via `addScore`. Difficulty multipliers
   console errors.
 
 ### Phase 1 — Camera + playfield
-- [ ] `src/shmup/camera.js` per §2.2.
-- [ ] A placeholder level object `{ scrollSpeed: 2.5, length: 300, backgroundLayers: [] }`.
-- [ ] Debug overlay (toggle with backquote) showing scrollX, player bounds, fps.
+- [x] `src/shmup/camera.js` per §2.2.
+- [x] A placeholder level object `{ scrollSpeed: 2.5, length: 300, backgroundLayers: [] }`.
+- [x] Debug overlay (toggle with backquote) showing scrollX, player bounds, fps.
 - **Done when:** the camera glides right at constant speed over a ground of
   test voxel blocks, and the visible band matches `playerBounds()` (verify by
   placing marker meshes at the four corners).
 
 ### Phase 2 — Player ship + bullets + first blood (vertical slice)
-- [ ] Ship asset: follow **[SHIP_PLAN.md](SHIP_PLAN.md)** (companion document —
+- [x] Ship asset: follow **[SHIP_PLAN.md](SHIP_PLAN.md)** (companion document —
       voxel recipe, palette, rig structure with separate emissive glow meshes,
       animation states, and its own spec + acceptance criteria). Key rule from
       it: baked voxel colors can't glow; bloom-lit parts (canopy, engine,
       muzzle) are separate emissive meshes, `buildGlowEyes`-style.
-- [ ] `src/shmup/player.js`: movement — velocity from input axes ×
+- [x] `src/shmup/player.js`: movement — velocity from input axes ×
       speed (base 9 u/s), clamped to `playerBounds()`. Ship drifts forward
       automatically with the scroll (it must never be pushed off the left edge:
       min-x clamp does that inherently).
-- [ ] `src/shmup/bullets.js` (import-clean, unit-testable): pool create/spawn/
+- [x] `src/shmup/bullets.js` (import-clean, unit-testable): pool create/spawn/
       update/collide helpers operating on plain arrays. Separate pools for
       player shots and enemy shots. + `tests/bullets.spec.mjs`.
-- [ ] `src/shmup/bulletmesh.js`: InstancedMesh renderer for the pools (THREE
+- [x] `src/shmup/bulletmesh.js`: InstancedMesh renderer for the pools (THREE
       side, per §2.4).
-- [ ] Basic shot: tap/hold fire → small bolts at 8/s, speed 24 u/s, despawn
+- [x] Basic shot: tap/hold fire → small bolts at 8/s, speed 24 u/s, despawn
       off-screen right (+2 units past bound).
-- [ ] `src/shmup/enemies/` — pool + `patterns.js` (§2.6) + spawn function.
+- [x] `src/shmup/enemies/` — pool + `patterns.js` (§2.6) + spawn function.
       Enemy models per **[ASSETS_PLAN.md](ASSETS_PLAN.md)** §2 (roster,
       registry pattern, shared-geometry rule). One test wave: five `sineDrift`
       drones entering from the right that die in one hit, explode (particles
       + sfx), and award score.
-- [ ] Explosion FX: `world.particles.spawnDustBurst(x, y, 0, n)` works mid-air,
+- [x] Explosion FX: `world.particles.spawnDustBurst(x, y, 0, n)` works mid-air,
       but shards bounce on a y≈0 floor and the shockwave ring lies flat in XZ
       (`particles.js` assumes a ground plane). For Phase 2 use dust bursts
       only; Phase 8 adds a proper side-view explosion (see gotcha G4).
-- [ ] SFX: extend the `sfx` object pattern — add `shoot`, `boom`, `hit` built
+- [x] SFX: extend the `sfx` object pattern — add `shoot`, `boom`, `hit` built
       from `playTone`/`playNoise` in a NEW `src/shmup/sfx.js` (don't edit
       `audio/synth.js`; import its primitives).
-- [ ] Player death: any enemy, enemy bullet, or terrain overlap kills instantly
+- [x] Player death: any enemy, enemy bullet, or terrain overlap kills instantly
       → DEATH state (brief slow explosion) → respawn with 2s invulnerability
       (ship blinks) at the current scroll position. 3 lives → GAMEOVER.
 - **Done when:** you can fly, shoot, kill the wave, die, respawn, and game
@@ -442,4 +442,29 @@ Rows marked ⟶ were superseded by NARRATIVE_PLAN §2 when the story landed.
 
 (Record anything done differently than planned, with a one-line why.)
 
-- _empty_
+- **Camera fov/z (Phase 1).** Took §2.2's own escape hatch: fov 50 at z 19.5
+  instead of fov 65 at z 22. At fov 65 the 16-unit playfield only filled the
+  screen at z≈14, which bent the screen edges badly under perspective.
+- **Vignette softened (Phase 1).** `vignettePass` uniforms retuned (offset
+  0.95→0.62). The kit's vignette is built for a brawler that keeps the action
+  centered; a shmup plays at the screen edges, where the default hid enemies as
+  they entered. Uniform tweak only — `renderer.js` is untouched.
+- **Ship rig origin (Phase 2).** SHIP_PLAN C2 says `geo.center()`; instead the
+  geometry is translated by `-SHIP_HIT_CENTER`. The bbox center sits at the
+  canopy line, so a 0.15-radius hit circle there hung out of the hull into empty
+  air and the player would die to shots that visibly missed. Same one-line rig
+  step, strictly fairer. Pinned by `tests/ship.spec.mjs`.
+- **`src/shmup/fx.js` landed in Phase 2, not Phase 8.** Phase 2 said "dust
+  bursts only". But per G4 the kit's particles assume a ground plane (shards
+  bounce at y≈0, the shockwave ring is rotated into XZ), so in a side view they
+  aren't a rough approximation — they're visibly wrong, and every explosion
+  would have been rewritten in Phase 8 anyway.
+- **Vessel rides the scroll (Phase 2).** Phase 2 allowed the min-x clamp to
+  carry the ship forward. It does, but it also pins her against the left screen
+  edge with nowhere to retreat, which is not how this genre moves. The Vessel
+  now advances at the scroll speed and the clamp is a safety net.
+- **Ship hull value raised (Phase 2).** NARRATIVE §3 wants a dark hull;
+  SHIP_PLAN wants one that reads instantly against black. The first pass
+  (0x2b3040) lost — she was a silhouette-shaped hole. Hull is now a mid-dark
+  grey-blue, and the kintsugi was cut back to one seam per side (it had covered
+  ~40% of the hull, which made violet decorative and therefore meaningless, C7).

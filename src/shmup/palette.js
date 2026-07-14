@@ -16,11 +16,17 @@ export const VIOLET = 0x8b5cf6;
 export const VIOLET_DEEP = 0x6d3fd6;
 
 /** The Vessel (SHIP_PLAN §3, palette amended by NARRATIVE_PLAN §3). */
+// Value note: the bible wants a DARK hull, and SHIP_PLAN wants one that reads
+// instantly at ~120px against a black background. Those pull opposite ways, and
+// the first pass lost — a 0x2b3040 hull was a silhouette-shaped hole in the
+// screen. These are the values that satisfy both: mid-dark, unmistakably a
+// grey-blue machine rather than a white knight, but a clear step above the
+// backdrop so the shape survives at gameplay size.
 export const SHIP_PALETTE = {
-    hull: 0x2b3040,        // dark graphite-blue hull — she is not a white knight
-    hullDark: 0x1b1f2c,    // belly / shaded panels
-    hullLight: 0x454d63,   // top-lit panels, canopy surround
-    panel: 0x141824,       // panel lines / intake trim
+    hull: 0x7d88a6,        // graphite-blue — dark in spirit, but it has to be SEEN
+    hullDark: 0x4d5674,    // belly / shaded panels
+    hullLight: 0xa3adc6,   // top-lit panels, canopy surround
+    panel: 0x252b3c,       // panel lines / intake trim
     seam: VIOLET,          // painted kintsugi crack-lines (voxel color)
     seamDeep: 0x4060ff,    // the blue half of the seam family
     accent: 0xf97316,      // copper — wing edges, nose ring, fin tip

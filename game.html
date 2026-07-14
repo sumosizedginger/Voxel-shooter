@@ -29,6 +29,18 @@
         .val { color: #cfe8ff; font-size: 16px; }
         .val.hi { color: #8b5cf6; }
 
+        /* Hull integrity (NARRATIVE C2) — the HUD half of the damage display;
+           the other half is the ship's own scar glow, and they share a color. */
+        #hullTrack {
+            width: 190px; height: 9px; margin-top: 4px;
+            background: #171a2c; border: 1px solid #2a2a44; border-radius: 5px;
+            overflow: hidden;
+        }
+        #hullBar {
+            height: 100%; width: 100%; background: #7fd8ff;
+            transition: width 0.12s linear, background 0.3s linear;
+        }
+
         /* ── full-screen overlay: title / pause / game over ── */
         #overlay {
             position: fixed; inset: 0; z-index: 20;
@@ -74,6 +86,10 @@
         </div>
         <div id="hudBottom">
             <div class="panel">
+                <div class="label">HULL INTEGRITY</div>
+                <div id="hullTrack"><div id="hullBar"></div></div>
+            </div>
+            <div class="panel">
                 <div class="label">LEVEL</div>
                 <div class="val" id="hudLevel">&mdash;</div>
             </div>
@@ -96,6 +112,7 @@
             debug: document.getElementById('debug'),
             score: document.getElementById('hudScore'),
             lives: document.getElementById('hudLives'),
+            hull: document.getElementById('hullBar'),
             level: document.getElementById('hudLevel')
         });
     </script>

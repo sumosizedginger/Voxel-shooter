@@ -1,0 +1,219 @@
+// src/shmup/player.js
+// Purpose: the Vessel — movement, hull integrity, presentation, death.
+// Dependencies: three, ./assets/shipRig, ./camera, ./bullets, ./fx, ./sfx, settings
+//
+// PLAN.md Phase 2 + NARRATIVE_PLAN C2. The damage model is the bible's, not
+// R-Type's:
+//   - enemy BULLETS do chip damage to a 100-point hull integrity bar
+//   - COLLISIONS (terrain, enemy bodies) are lethal outright, always
+// That split is load-bearing: it's exactly why the Ghost Drone's "phase through
+// one collision per life" is worth a Council seat.
+//
+// The damage display is not a number. It's her: the kintsugi scars brighten as
+// integrity falls, so the ship bleeds light the way GUMOI does (NARRATIVE §3).
+
+import * as THREE from 'three';
+import { buildShipRig, SCAR_MIN, SCAR_MAX } from './assets/shipRig.js';
+import { playerBounds } from './camera.js';
+import { KIND, spawn } from './bullets.js';
+import { shatter, explode, muzzleFlash } from './fx.js';
+import { sfx } from './sfx.js';
+import { getSetting } from '../engine/settings.js';
+
+/** Base speed, world units/second. A per-level tuning constant (C4). */
+export const BASE_SPEED = 9;
+/** The hit circle. Tiny relative to the model, and non-negotiable (§2.4). */
+export const HIT_R = 0.15;
+export const MAX_HULL = 100;
+const INVULN_S = 2.0;
+const BLINK_HZ = 12;
+
+const SHOT_RATE = 8;           // shots/second, held fire
+const SHOT_SPEED = 24;
+const SHOT_DMG = 1;
+
+export function createPlayer(scene, world) {
+    const { rig, parts, voxMap } = buildShipRig();
+    scene.add(rig);
+
+    const p = {
+        x: 0, y: 8, vx: 0, vy: 0,
+        r: HIT_R,
+        alive: true,
+        hull: MAX_HULL,
+        maxHull: MAX_HULL,
+        lives: 3,
+        invuln: 0,
+        /** Set true by the Ghost Drone: eats exactly one lethal collision. */
+        phaseCharges: 0,
+        /** Movement multiplier — slow-stacks (bible) push this down. */
+        speedScale: 1,
+        /** Set by weapons that lock the Vessel (tier-3 Siren Pulse, 1.4 s). */
+        locked: 0,
+
+        rig, parts, voxMap,
+        _t: 0,
+        _shotCd: 0,
+        _dead: false
+    };
+
+    world.player = p;
+    return p;
+}
+
+/** Put the Vessel back at a spawn point with invulnerability. */
+export function respawnPlayer(p, x, y = 8) {
+    p.x = x;
+    p.y = y;
+    p.vx = 0;
+    p.vy = 0;
+    p.alive = true;
+    p._dead = false;
+    p.hull = MAX_HULL;
+    p.invuln = INVULN_S;
+    p.speedScale = 1;
+    p.locked = 0;
+    p.rig.visible = true;
+    p.rig.rotation.set(0, 0, 0);
+    sfx.respawn();
+}
+
+/**
+ * Chip damage from enemy fire. Returns true if this killed her.
+ * Collisions do NOT come through here — see killPlayer().
+ */
+export function damagePlayer(p, dmg, world) {
+    if (!p.alive || p.invuln > 0) return false;
+    p.hull -= dmg;
+    sfx.hurt();
+    if (world && world.onPlayerHurt) world.onPlayerHurt(dmg);
+    if (p.hull <= 0) {
+        p.hull = 0;
+        killPlayer(p, world);
+        return true;
+    }
+    // A short mercy window so a bullet stream can't delete a full bar in
+    // three frames — chip damage must stay chip damage.
+    p.invuln = 0.35;
+    return false;
+}
+
+/**
+ * Lethal: terrain contact, enemy body contact, or hull hitting zero.
+ * The Ghost Drone's phase charge is spent here, and nowhere else.
+ */
+export function killPlayer(p, world, fromCollision = false) {
+    if (!p.alive || p._dead) return false;
+
+    if (fromCollision && p.phaseCharges > 0) {
+        p.phaseCharges--;
+        p.invuln = 0.8;                        // pass through, and be seen doing it
+        sfx.absorb();
+        if (world && world.onPhased) world.onPhased();
+        return false;
+    }
+
+    p.alive = false;
+    p._dead = true;
+    p.rig.visible = false;
+    shatter(p.x, p.y, p.voxMap, 0.1, 26);
+    explode(p.x, p.y, 1.8, 0x9fb0ff);
+    sfx.die();
+    if (world && world.onPlayerDied) world.onPlayerDied();
+    return true;
+}
+
+/** Tick the Vessel: move, shoot, and dress the rig. */
+export function updatePlayer(p, dt, input, world) {
+    p._t += dt;
+
+    if (!p.alive) return;
+
+    if (p.invuln > 0) p.invuln -= dt;
+    if (p.locked > 0) p.locked -= dt;
+
+    // ── movement
+    const b = playerBounds();
+    if (p.locked > 0) {
+        // Tier-3 Siren Pulse roots her. She chose to plant her feet; the cost
+        // is that for 1.4 s she cannot dodge.
+        p.vx = 0;
+        p.vy = 0;
+    } else {
+        const speed = BASE_SPEED * p.speedScale;
+        p.vx = input.axisX * speed;
+        p.vy = input.axisY * speed;
+    }
+
+    // The Vessel rides the scroll: with no input she holds her SCREEN position
+    // while the level goes past. Letting the min-x clamp carry her instead
+    // (which PLAN.md Phase 2 allows) pins her against the left edge with
+    // nowhere to retreat to — the clamp is a safety net, not a conveyor belt.
+    const drift = (world.level && !world.level.scrollLocked)
+        ? (world.level.scrollSpeed || 0) : 0;
+    p.x += (p.vx + drift) * dt;
+    p.y += p.vy * dt;
+
+    p.x = Math.max(b.minX, Math.min(b.maxX, p.x));
+    p.y = Math.max(b.minY, Math.min(b.maxY, p.y));
+
+    // ── basic shot (Phase 4 layers the Siren Pulse charge on top of this)
+    p._shotCd -= dt;
+    if (input.fire && p._shotCd <= 0 && !world.chargeOwnsFire) {
+        firePlayerBolt(p, world);
+        p._shotCd = 1 / SHOT_RATE;
+    }
+
+    updateShipRig(p, dt, input);
+}
+
+export function firePlayerBolt(p, world) {
+    const nose = p.x + 0.95;
+    spawn(world.bullets, {
+        x: nose, y: p.y - 0.05, vx: SHOT_SPEED, vy: 0,
+        r: 0.12, dmg: SHOT_DMG, kind: KIND.PLAYER_BOLT
+    });
+    muzzleFlash(nose, p.y - 0.05, 0);
+    sfx.shoot();
+}
+
+/** Presentation only (SHIP_PLAN §6). Nothing here may affect gameplay. */
+function updateShipRig(p, dt, input) {
+    const { rig, parts } = p;
+
+    // Banking roll — the wings' sweep only reads when she banks, so this is
+    // what makes the model look like a plane instead of a brick.
+    const targetRoll = -input.axisY * 0.35;
+    const k = 1 - Math.exp(-dt * 10);          // the engine's exponential-ease idiom
+    rig.rotation.x += (targetRoll - rig.rotation.x) * k;
+    rig.rotation.z += (input.axisY * 0.08 - rig.rotation.z) * k;
+
+    // Thruster flicker.
+    const thrust = 1.6 + Math.sin(p._t * 37) * 0.35 + (input.axisX > 0 ? 0.5 : 0);
+    parts.engineMat.emissiveIntensity = thrust;
+    parts.engineMesh.scale.x = 1 + (input.axisX > 0 ? 0.35 : 0);
+    parts.engineHalo.material.opacity = 0.28 + Math.sin(p._t * 29) * 0.06;
+
+    // ── the damage display (C2): the scars brighten as she loses hull.
+    const wounded = 1 - Math.max(0, Math.min(1, p.hull / p.maxHull));
+    const scar = SCAR_MIN + (SCAR_MAX - SCAR_MIN) * wounded;
+    // A slow pulse at low hull — a heartbeat, so "nearly dead" is felt, not read.
+    const beat = wounded > 0.6 ? 1 + Math.sin(p._t * 6) * 0.25 * wounded : 1;
+    for (const m of parts.scarMats) m.emissiveIntensity = scar * beat;
+
+    // ── invulnerability
+    if (p.invuln > 0) {
+        if (getSetting('reduceFlashing')) {
+            // No strobe. A steady half-ghost says the same thing.
+            if (parts.hull.material !== parts.ghostMat) parts.hull.material = parts.ghostMat;
+            rig.visible = true;
+        } else {
+            rig.visible = Math.floor(p._t * BLINK_HZ) % 2 === 0;
+        }
+    } else {
+        if (parts.hull.material !== parts.hullMat) parts.hull.material = parts.hullMat;
+        rig.visible = true;
+    }
+
+    rig.position.set(p.x, p.y, 0);
+}

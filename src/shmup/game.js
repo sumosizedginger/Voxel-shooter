@@ -1,8 +1,8 @@
 // src/shmup/game.js
 // Purpose: the game shell — state machine, main loop, and the shared `world`.
-// Dependencies: engine/{renderer,lights,particles,settings}, ./input, ./camera
+// Dependencies: engine/*, ./input, ./camera, ./player, ./bullets, ./enemies, ./fx
 //
-// PLAN.md Phase 0/1. Every gameplay system hangs off `world` (src/context.js);
+// PLAN.md Phase 0-2. Every gameplay system hangs off `world` (src/context.js);
 // nothing reaches through `window`.
 
 import * as THREE from 'three';
@@ -15,11 +15,22 @@ import { initAudio } from '../audio/synth.js';
 import { world } from '../context.js';
 import { input, initInput, updateInput, consumeAnyKey } from './input.js';
 import {
-    updateShmupCamera, setScrollX, playerBounds, scrollX, PLAY_Y, PLAY_MIN_Y, PLAY_MAX_Y
+    updateShmupCamera, setScrollX, playerBounds, spawnX, despawnX,
+    scrollX, PLAY_Y, PLAY_MIN_Y, PLAY_MAX_Y, clearShake
 } from './camera.js';
 import { BEIGE_PALETTE } from './palette.js';
 import { fillBox, paint } from '../voxel/helpers.js';
 import { buildVoxelGeo } from '../voxel/core.js';
+import { createPool, updateBullets, collideBullets, clearPool, firstHit, kill } from './bullets.js';
+import { BulletRenderer } from './bulletmesh.js';
+import { createPlayer, updatePlayer, damagePlayer, killPlayer, respawnPlayer, HIT_R } from './player.js';
+import {
+    initEnemies, createEnemyPool, spawnEnemy, updateEnemies, damageEnemy,
+    clearEnemies
+} from './enemies/index.js';
+import { circleHit } from './bullets.js';
+import { initFx, updateFx, clearFx, sparkHit } from './fx.js';
+import { sfx } from './sfx.js';
 
 export const STATE = {
     TITLE: 'TITLE',
@@ -31,13 +42,17 @@ export const STATE = {
 };
 
 const START_LIVES = 3;
+const DEATH_HOLD_S = 1.4;      // the slow beat before the world restarts
 
 let state = STATE.TITLE;
-let prevState = STATE.TITLE;      // where PAUSED came from
+let prevState = STATE.TITLE;
 let clock = null;
 let particles = null;
+let bulletFx = null;
+let player = null;
 let debugOn = false;
 let elapsed = 0;
+let stateT = 0;
 let dom = {};
 
 export function getState() { return state; }
@@ -45,27 +60,24 @@ export function getState() { return state; }
 function setState(next) {
     if (state === next) return;
     state = next;
+    stateT = 0;
     world.state = next;
-    render_ui();
+    renderOverlay();
 }
 
-// ── the placeholder level (Phase 1). Phase 5 replaces this with the director.
+// ── the placeholder level (Phase 5's director replaces this) ────────────────
 function buildPlaceholderLevel() {
-    const layers = [];
     const level = {
         id: 'placeholder',
         name: 'TEST SCROLL',
         scrollSpeed: 2.5,
-        length: 300,
+        length: 400,
         scrollLocked: false,
-        backgroundLayers: layers,
+        backgroundLayers: [],
         group: new THREE.Group()
     };
     scene.add(level.group);
 
-    // A ground + ceiling run of chunky test blocks so the scroll is legible.
-    // Beige on purpose — this is the Slope's palette, and a placeholder that
-    // matches the real level's value range tells you the truth about lighting.
     const map = new Map();
     fillBox(map, 0, 15, 0, 3, -2, 2, BEIGE_PALETTE.mid);
     paint(map, (x, y) => (y === 3 ? BEIGE_PALETTE.base : null));
@@ -74,7 +86,7 @@ function buildPlaceholderLevel() {
     }
     const geo = buildVoxelGeo(map);
     const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
-    const CHUNK_SCALE = 0.25;          // ASSETS_PLAN §6: chunky is right for walls
+    const CHUNK_SCALE = 0.25;
     const chunkW = 16 * CHUNK_SCALE;
 
     for (let i = 0; i * chunkW < level.length + 40; i++) {
@@ -87,7 +99,7 @@ function buildPlaceholderLevel() {
 
         const ceil = new THREE.Mesh(geo, mat);
         ceil.scale.setScalar(CHUNK_SCALE);
-        ceil.rotation.z = Math.PI;                 // flip it to hang from the top
+        ceil.rotation.z = Math.PI;
         ceil.position.set(i * chunkW + chunkW, PLAY_MAX_Y, 0);
         ceil.receiveShadow = true;
         level.group.add(ceil);
@@ -95,48 +107,94 @@ function buildPlaceholderLevel() {
     return level;
 }
 
-// ── corner markers: the Phase-1 "done when" check — these sit exactly on
-//    playerBounds()'s four corners, so a wrong bound is visible, not argued.
-let boundsMarkers = null;
-function buildBoundsMarkers() {
-    const g = new THREE.Group();
-    const geo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
-    const mat = new THREE.MeshBasicMaterial({ color: 0x7fe0ff });
-    for (let i = 0; i < 4; i++) g.add(new THREE.Mesh(geo, mat));
-    g.visible = false;
-    scene.add(g);
-    return g;
+// ── the Phase-2 test wave: five drones, then a gunpod, on a loop. Phase 5's
+//    level director makes this data instead of code.
+let waveT = 0;
+let waveN = 0;
+function updateTestWaves(dt) {
+    waveT -= dt;
+    if (waveT > 0) return;
+    waveT = 4.5;
+    waveN++;
+
+    const x = spawnX(2);
+    if (waveN % 3 === 0) {
+        spawnEnemy(world.enemies, 'gunpod', { x, y: 5 + Math.random() * 6 });
+    } else {
+        // A chain of five, staggered in x so they arrive as a sentence.
+        const baseY = 4 + Math.random() * 8;
+        for (let i = 0; i < 5; i++) {
+            spawnEnemy(world.enemies, 'drone', {
+                x: x + i * 1.6,
+                y: baseY,
+                patternState: { amp: 1.6, freq: 0.45, baseY }
+            });
+        }
+    }
 }
 
-function updateBoundsMarkers() {
-    if (!boundsMarkers) return;
-    boundsMarkers.visible = debugOn;
-    if (!debugOn) return;
-    const b = playerBounds();
-    const c = boundsMarkers.children;
-    c[0].position.set(b.minX, b.minY, 0);
-    c[1].position.set(b.maxX, b.minY, 0);
-    c[2].position.set(b.maxX, b.maxY, 0);
-    c[3].position.set(b.minX, b.maxY, 0);
+// ── collisions ─────────────────────────────────────────────────────────────
+function resolveCollisions(dt) {
+    const p = world.player;
+
+    // player shots -> enemies
+    collideBullets(world.bullets, world.enemies.items, (b, e) => {
+        damageEnemy(world.enemies, e, b.dmg, world);
+    });
+
+    if (!p.alive) return;
+
+    // enemy shots -> the Vessel (CHIP damage, C2)
+    const hit = firstHit(world.enemyBullets, p.x, p.y, p.r);
+    if (hit && p.invuln <= 0) {
+        sparkHit(hit.x, hit.y, 0xff80d0);
+        kill(world.enemyBullets, hit);
+        damagePlayer(p, hit.dmg, world);
+    }
+
+    if (!p.alive) return;
+
+    // enemy BODIES -> the Vessel (lethal, C2)
+    for (const e of world.enemies.items) {
+        if (!e.alive || !e.contactKills) continue;
+        if (circleHit(p.x, p.y, p.r, e.x, e.y, e.r)) {
+            if (p.invuln > 0) break;
+            killPlayer(p, world, true);
+            break;
+        }
+    }
 }
 
 // ── DOM ────────────────────────────────────────────────────────────────────
-function render_ui() {
+function renderOverlay() {
     if (!dom.overlay) return;
-    const showTitle = state === STATE.TITLE;
-    const showPause = state === STATE.PAUSED;
-    const showOver = state === STATE.GAMEOVER;
-    dom.overlay.style.display = (showTitle || showPause || showOver) ? 'flex' : 'none';
-    if (showTitle) {
+    const show = state === STATE.TITLE || state === STATE.PAUSED || state === STATE.GAMEOVER;
+    dom.overlay.style.display = show ? 'flex' : 'none';
+    if (state === STATE.TITLE) {
         dom.overlayTitle.textContent = 'GUMOI';
         dom.overlaySub.innerHTML = 'THE LATTICE BREAK<br><span class="dim">press any key</span>';
-    } else if (showPause) {
+    } else if (state === STATE.PAUSED) {
         dom.overlayTitle.textContent = 'PAUSED';
         dom.overlaySub.innerHTML = '<span class="dim">esc / p to resume</span>';
-    } else if (showOver) {
+    } else if (state === STATE.GAMEOVER) {
         dom.overlayTitle.textContent = 'GAME OVER';
-        dom.overlaySub.innerHTML = '<span class="dim">press any key</span>';
+        dom.overlaySub.innerHTML = 'SCORE ' + world.score
+            + '<br><span class="dim">press any key</span>';
     }
+}
+
+function renderHud() {
+    if (!dom.score) return;
+    dom.score.textContent = String(world.score);
+    dom.lives.textContent = '×' + Math.max(0, world.lives);
+    if (dom.hull && player) {
+        const pct = Math.max(0, player.hull) / player.maxHull * 100;
+        dom.hull.style.width = pct + '%';
+        // The bar takes on the scar violet as she loses hull — the HUD and the
+        // ship tell the same story in the same color.
+        dom.hull.style.background = pct > 60 ? '#7fd8ff' : (pct > 25 ? '#8b5cf6' : '#ff4d6d');
+    }
+    if (dom.level && world.level) dom.level.textContent = world.level.name;
 }
 
 function renderDebug() {
@@ -147,15 +205,15 @@ function renderDebug() {
     dom.debug.textContent =
         'state    ' + state + '\n' +
         'scrollX  ' + scrollX.toFixed(2) + '\n' +
-        'bounds   x[' + b.minX.toFixed(1) + ', ' + b.maxX.toFixed(1) + ']  ' +
-        'y[' + b.minY.toFixed(1) + ', ' + b.maxY.toFixed(1) + ']\n' +
-        'axis     ' + input.axisX.toFixed(2) + ', ' + input.axisY.toFixed(2) + '\n' +
-        'fps      ' + fps.toFixed(0) + '\n' +
-        'draws    ' + lastDrawCalls;
+        'bounds   x[' + b.minX.toFixed(1) + ', ' + b.maxX.toFixed(1) + ']  '
+        + 'y[' + b.minY.toFixed(1) + ', ' + b.maxY.toFixed(1) + ']\n' +
+        'ship     ' + player.x.toFixed(1) + ', ' + player.y.toFixed(1)
+        + '   hull ' + player.hull.toFixed(0) + '/' + player.maxHull + '\n' +
+        'enemies  ' + world.enemies.live + '   bullets ' + world.bullets.live
+        + ' / ' + world.enemyBullets.live + '\n' +
+        'fps      ' + fps.toFixed(0) + '   draws ' + lastDrawCalls;
 }
 
-// Read AFTER composer.render(), because renderer.info was reset at the top of
-// this frame — reading it before the render would always report 0.
 let lastDrawCalls = 0;
 let fps = 0;
 let fpsAccum = 0;
@@ -165,14 +223,57 @@ let fpsFrames = 0;
 function startRun() {
     world.lives = START_LIVES;
     world.score = 0;
+    waveT = 1.5;
+    waveN = 0;
+    clearPool(world.bullets);
+    clearPool(world.enemyBullets);
+    clearEnemies(world.enemies);
+    clearFx();
+    clearShake();
     setScrollX(0);
+    respawnPlayer(player, playerBounds().minX + 4, PLAY_Y);
+    player.lives = START_LIVES;
     setState(STATE.PLAYING);
+}
+
+/** Death -> the world rewinds. Phase 3 makes this rewind to a checkpoint. */
+function respawnAfterDeath() {
+    clearPool(world.enemyBullets);
+    clearEnemies(world.enemies);
+    clearShake();
+    waveT = 2.0;
+    respawnPlayer(player, playerBounds().minX + 4, PLAY_Y);
+    setState(STATE.PLAYING);
+}
+
+function tickPlaying(dt) {
+    updateShmupCamera(dt, world.level);
+    world.scrollX = scrollX;
+    world.bounds = playerBounds();
+
+    updateTestWaves(dt);
+    updatePlayer(player, dt, input, world);
+    updateEnemies(world.enemies, dt, world);
+
+    // Bullets cull on a generous box around the screen — a bullet that leaves
+    // is gone, and it must not cost anything to have left.
+    const cullBox = {
+        minX: despawnX(3), maxX: spawnX(3),
+        minY: PLAY_MIN_Y - 3, maxY: PLAY_MAX_Y + 3
+    };
+    updateBullets(world.bullets, dt, cullBox, world.terrain,
+        (b) => sparkHit(b.x, b.y, 0x9fe8ff));
+    updateBullets(world.enemyBullets, dt, cullBox, null);
+
+    resolveCollisions(dt);
 }
 
 function frame() {
     requestAnimationFrame(frame);
-    const dt = Math.min(0.05, clock.getDelta());   // G6: everything is per-second
+    const dt = Math.min(0.05, clock.getDelta());     // G6
     elapsed += dt;
+    stateT += dt;
+    world.elapsedT = elapsed;
 
     fpsAccum += dt;
     fpsFrames++;
@@ -182,17 +283,16 @@ function frame() {
         fpsFrames = 0;
     }
 
-    // G1: renderer.info.autoReset is false — reset exactly once per frame or
-    // every draw-call reading (and the smoke spec) sees garbage.
+    // G1: autoReset is off — reset exactly once per frame.
     renderer.info.reset();
 
     updateInput(dt);
-    if (input.debugPressed) { debugOn = !debugOn; }
+    if (input.debugPressed) debugOn = !debugOn;
 
     switch (state) {
         case STATE.TITLE:
             if (consumeAnyKey()) {
-                initAudio();               // G2: must come from a user gesture
+                initAudio();                        // G2: needs a user gesture
                 startRun();
             }
             break;
@@ -203,25 +303,41 @@ function frame() {
                 setState(STATE.PAUSED);
                 break;
             }
-            updateShmupCamera(dt, world.level);
+            tickPlaying(dt);
             break;
 
         case STATE.PAUSED:
             if (input.pausePressed) setState(prevState);
             break;
 
+        case STATE.DEATH:
+            // The world keeps moving while the wreck cools. Then it rewinds.
+            updateShmupCamera(dt, world.level);
+            updateEnemies(world.enemies, dt, world);
+            if (stateT >= DEATH_HOLD_S) {
+                world.lives--;
+                if (world.lives <= 0) {
+                    setState(STATE.GAMEOVER);
+                } else {
+                    respawnAfterDeath();
+                }
+            }
+            break;
+
         case STATE.GAMEOVER:
-            if (consumeAnyKey()) setState(STATE.TITLE);
+            if (stateT > 0.6 && consumeAnyKey()) setState(STATE.TITLE);
             break;
 
         default:
             break;
     }
 
-    consumeAnyKey();                        // don't let a stale press leak states
+    consumeAnyKey();
     particles.update(dt);
+    updateFx(dt);
+    bulletFx.update([world.bullets, world.enemyBullets]);
     updateShadowFollow(camera.position.x);
-    updateBoundsMarkers();
+    renderHud();
     renderDebug();
 
     composer.render();
@@ -235,22 +351,33 @@ export function boot(domRefs) {
     initShmupLights();
     initQuality();
     initInput();
+    initFx(scene);
+    initEnemies(scene);
 
     particles = new ParticleSystem(scene);
-    // The kit's ambient petal rain belongs to a different game (PLAN.md Phase 8).
+    // The kit's ambient petal rain belongs to a different game.
     if (particles.petalMesh) particles.petalMesh.visible = false;
 
     world.particles = particles;
     world.level = buildPlaceholderLevel();
+    world.bullets = createPool(128);
+    world.enemyBullets = createPool(256);
+    world.enemies = createEnemyPool(64);
+    world.terrain = null;                    // Phase 3
     world.score = 0;
     world.lives = START_LIVES;
     world.state = state;
-    world.elapsed = () => elapsed;
+    world.scrollX = 0;
+    world.bounds = playerBounds();
 
-    boundsMarkers = buildBoundsMarkers();
+    // Callbacks the systems fire back into the shell.
+    world.onPlayerDied = () => setState(STATE.DEATH);
+    world.onEnemyShot = () => sfx.enemyShoot();
+
+    bulletFx = new BulletRenderer(scene);
+    player = createPlayer(scene, world);
 
     window.addEventListener('resize', onResize);
-    // Test hook, same shape the smoke spec reads on index.html.
     window.__engineKit = { renderer, composer, scene };
     window.__gumoi = {
         world, getState, setState,
@@ -259,6 +386,6 @@ export function boot(domRefs) {
     };
 
     setScrollX(0);
-    render_ui();
+    renderOverlay();
     frame();
 }

@@ -45,7 +45,12 @@ for (const k of taps) { await page.keyboard.press(k); await sleep(120); }
 for (const k of keys) await page.keyboard.down(k);
 await sleep(waitMs);
 
-await page.screenshot({ path: out });
+// --clip=x,y,w,h crops the shot (for squinting at one ship at 1:1).
+const clipArg = opt('clip', '');
+const clip = clipArg
+    ? (([x, y, width, height]) => ({ x, y, width, height }))(clipArg.split(',').map(Number))
+    : undefined;
+await page.screenshot({ path: out, clip });
 const info = await page.evaluate(() => {
     const k = window.__engineKit, g = window.__gumoi;
     return {

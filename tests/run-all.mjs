@@ -7,6 +7,10 @@ import { createSink, summarize, writeStepSummary, printErrorAnnotations } from '
 import { run as runCollision } from './collision.spec.mjs';
 import { run as runHitbox } from './hitbox.spec.mjs';
 import { run as runSettings } from './settings.spec.mjs';
+// ── GUMOI: The Lattice Break (src/shmup) ──
+import { run as runShip } from './ship.spec.mjs';
+import { run as runAssets } from './assets.spec.mjs';
+import { run as runBullets } from './bullets.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -24,6 +28,18 @@ async function main() {
     const settings = createSink('settings');
     await runSettings(settings);
     sinks.push(settings);
+
+    const ship = createSink('ship');
+    runShip(ship);
+    sinks.push(ship);
+
+    const assets = createSink('assets');
+    runAssets(assets);
+    sinks.push(assets);
+
+    const bullets = createSink('bullets');
+    runBullets(bullets);
+    sinks.push(bullets);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');
