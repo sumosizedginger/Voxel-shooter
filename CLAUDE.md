@@ -1,5 +1,7 @@
 # Rtype3 — Voxel Engine Kit → R-Type III shmup conversion
 
+**Public repo:** https://github.com/sumosizedginger/Voxel-shooter
+
 **Start here: read [PLAN.md](PLAN.md) before writing any code.** It is the
 authoritative, phase-ordered build plan (with locked architecture decisions,
 real API references, and a gotcha list) written after a full source read.
