@@ -234,12 +234,12 @@ High scores already work via `addScore`. Difficulty multipliers
   over — the complete core loop, playable start to finish.
 
 ### Phase 3 — Terrain + checkpoints
-- [ ] `src/shmup/terrain.js` per §2.3 + `tests/terrain.spec.mjs` (the remap:
+- [x] `src/shmup/terrain.js` per §2.3 + `tests/terrain.spec.mjs` (the remap:
       a box blocks at the right y; resolveMove slides in y).
-- [ ] Level data gains terrain entries: modular chunks from ASSETS_PLAN.md §6
+- [x] Level data gains terrain entries: modular chunks from ASSETS_PLAN.md §6
       (each chunk builder returns `{map, collisionBoxes}` together, and
       collision is always slightly smaller than the art).
-- [ ] Checkpoints: an ordered list of scroll-x positions in level data. Death
+- [x] Checkpoints: an ordered list of scroll-x positions in level data. Death
       → respawn scrolls back to the last passed checkpoint and **respawns the
       wave state from that point** (classic R-Type: death rewinds; this
       requires the level director (Phase 5) to be restartable-from-x — design

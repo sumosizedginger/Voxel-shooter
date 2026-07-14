@@ -18,9 +18,9 @@ import {
     updateShmupCamera, setScrollX, playerBounds, spawnX, despawnX,
     scrollX, PLAY_Y, PLAY_MIN_Y, PLAY_MAX_Y, clearShake
 } from './camera.js';
-import { BEIGE_PALETTE } from './palette.js';
-import { fillBox, paint } from '../voxel/helpers.js';
-import { buildVoxelGeo } from '../voxel/core.js';
+import { TERRAIN_SCALE } from './assets/terrain.js';
+import { Terrain } from './terrain.js';
+import { buildTerrain } from './level/build.js';
 import { createPool, updateBullets, collideBullets, clearPool, firstHit, kill } from './bullets.js';
 import { BulletRenderer } from './bulletmesh.js';
 import { createPlayer, updatePlayer, damagePlayer, killPlayer, respawnPlayer, HIT_R } from './player.js';
@@ -65,8 +65,17 @@ function setState(next) {
     renderOverlay();
 }
 
-// ── the placeholder level (Phase 5's director replaces this) ────────────────
+// ── the placeholder level (Phase 5's director + level01 replace this) ───────
+// It is authored as DATA in the LEVELS_PLAN §2 shape, so the terrain loader it
+// exercises is the same one the real levels will use.
 function buildPlaceholderLevel() {
+    const CHUNK = 20 * TERRAIN_SCALE;          // fleshWall(len=20) in world units
+    const terrainEntries = [];
+    for (let x = 0; x * CHUNK < 400 + 60; x++) {
+        terrainEntries.push({ chunk: 'fleshWall', atX: x * CHUNK, y: PLAY_MIN_Y, args: [20, 6, 1] });
+        terrainEntries.push({ chunk: 'fleshWall', atX: x * CHUNK, y: PLAY_MAX_Y, args: [20, 6, -1] });
+    }
+
     const level = {
         id: 'placeholder',
         name: 'TEST SCROLL',
@@ -74,37 +83,42 @@ function buildPlaceholderLevel() {
         length: 400,
         scrollLocked: false,
         backgroundLayers: [],
+        terrain: terrainEntries,
         group: new THREE.Group()
     };
     scene.add(level.group);
-
-    const map = new Map();
-    fillBox(map, 0, 15, 0, 3, -2, 2, BEIGE_PALETTE.mid);
-    paint(map, (x, y) => (y === 3 ? BEIGE_PALETTE.base : null));
-    for (let x = 0; x <= 15; x += 3) {
-        fillBox(map, x, x + 1, 4, 4, -2, 2, BEIGE_PALETTE.dark);
-    }
-    const geo = buildVoxelGeo(map);
-    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9 });
-    const CHUNK_SCALE = 0.25;
-    const chunkW = 16 * CHUNK_SCALE;
-
-    for (let i = 0; i * chunkW < level.length + 40; i++) {
-        const floor = new THREE.Mesh(geo, mat);
-        floor.scale.setScalar(CHUNK_SCALE);
-        floor.position.set(i * chunkW, PLAY_MIN_Y, 0);
-        floor.receiveShadow = true;
-        floor.castShadow = true;
-        level.group.add(floor);
-
-        const ceil = new THREE.Mesh(geo, mat);
-        ceil.scale.setScalar(CHUNK_SCALE);
-        ceil.rotation.z = Math.PI;
-        ceil.position.set(i * chunkW + chunkW, PLAY_MAX_Y, 0);
-        ceil.receiveShadow = true;
-        level.group.add(ceil);
-    }
+    buildTerrain(level, level.group, world.terrain);
     return level;
+}
+
+// ── debug: draw the collision boxes. The whole point of Phase 3 is that these
+//    line up with the art, and the only way to know is to look at them.
+let boxWires = null;
+function updateTerrainWires() {
+    if (!boxWires) {
+        boxWires = new THREE.Group();
+        boxWires.visible = false;
+        scene.add(boxWires);
+    }
+    boxWires.visible = debugOn;
+    if (!debugOn || !world.terrain) return;
+
+    const boxes = world.terrain.boxes;
+    while (boxWires.children.length < boxes.length) {
+        const w = new THREE.LineSegments(
+            new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
+            new THREE.LineBasicMaterial({ color: 0x7CFFB0 })
+        );
+        boxWires.add(w);
+    }
+    for (let i = 0; i < boxWires.children.length; i++) {
+        const w = boxWires.children[i];
+        const b = boxes[i];
+        if (!b) { w.visible = false; continue; }
+        w.visible = true;
+        w.scale.set(b.maxX - b.minX, b.maxY - b.minY, 1);
+        w.position.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, 0.6);
+    }
 }
 
 // ── the Phase-2 test wave: five drones, then a gunpod, on a loop. Phase 5's
@@ -162,6 +176,14 @@ function resolveCollisions(dt) {
             killPlayer(p, world, true);
             break;
         }
+    }
+
+    if (!p.alive) return;
+
+    // TERRAIN -> the Vessel (lethal, and the oldest rule in the genre).
+    // An overlap test, never a slide: the wall does not push you, it ends you.
+    if (world.terrain && p.invuln <= 0 && world.terrain.blocked(p.x, p.y, p.r)) {
+        killPlayer(p, world, true);
     }
 }
 
@@ -236,12 +258,37 @@ function startRun() {
     setState(STATE.PLAYING);
 }
 
-/** Death -> the world rewinds. Phase 3 makes this rewind to a checkpoint. */
+/**
+ * Death rewinds the world (PLAN.md Phase 3). The scroll goes back to the last
+ * checkpoint the player actually passed, and the level director re-arms every
+ * trigger after it — so the waves you already fought come back, exactly as they
+ * were. This is the classic R-Type contract, and LEVELS_PLAN §5's F1-F4 rules
+ * are what keep it from being the classic R-Type cruelty.
+ */
+function lastCheckpointX() {
+    const cps = (world.level && world.level.checkpoints) || [];
+    let best = 0;
+    for (const cx of cps) if (cx <= scrollX && cx > best) best = cx;
+    return best;
+}
+
 function respawnAfterDeath() {
+    clearPool(world.bullets);
     clearPool(world.enemyBullets);
     clearEnemies(world.enemies);
+    clearFx();
     clearShake();
     waveT = 2.0;
+
+    const backTo = lastCheckpointX();
+    setScrollX(backTo);
+    // The director owns wave state; rewinding the camera without rewinding it
+    // would replay the level with all its waves already spent.
+    if (world.director) world.director.reset(backTo);
+    world.deaths = (world.deaths || 0) + 1;
+    // F1: the recovery pickup only exists on a post-death run.
+    world.diedSinceCheckpoint = true;
+
     respawnPlayer(player, playerBounds().minX + 4, PLAY_Y);
     setState(STATE.PLAYING);
 }
@@ -337,6 +384,7 @@ function frame() {
     updateFx(dt);
     bulletFx.update([world.bullets, world.enemyBullets]);
     updateShadowFollow(camera.position.x);
+    updateTerrainWires();
     renderHud();
     renderDebug();
 
@@ -359,11 +407,11 @@ export function boot(domRefs) {
     if (particles.petalMesh) particles.petalMesh.visible = false;
 
     world.particles = particles;
-    world.level = buildPlaceholderLevel();
     world.bullets = createPool(128);
     world.enemyBullets = createPool(256);
     world.enemies = createEnemyPool(64);
-    world.terrain = null;                    // Phase 3
+    world.terrain = new Terrain();
+    world.level = buildPlaceholderLevel();   // needs world.terrain to exist
     world.score = 0;
     world.lives = START_LIVES;
     world.state = state;
