@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GUMOI: The Lattice Break</title>
+    <link rel="icon" href="data:,">
+    <style>
+        html, body {
+            margin: 0; height: 100%; background: #0a0514; overflow: hidden;
+            font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+            color: #cfe8ff;
+        }
+        canvas { display: block; }
+
+        /* ── HUD (Phase 7 fills this out; Phase 0 just needs the frame) ── */
+        #hud {
+            position: fixed; inset: 0; z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 14px 18px;
+        }
+        #hudTop { display: flex; justify-content: space-between; align-items: flex-start; }
+        #hudBottom { display: flex; justify-content: space-between; align-items: flex-end; }
+        .panel {
+            background: rgba(8, 6, 20, 0.6); border: 1px solid #2a2a44;
+            border-radius: 6px; padding: 8px 12px; font-size: 13px; line-height: 1.5;
+        }
+        .label { color: #6d7796; font-size: 10px; letter-spacing: 0.14em; }
+        .val { color: #cfe8ff; font-size: 16px; }
+        .val.hi { color: #8b5cf6; }
+
+        /* ── full-screen overlay: title / pause / game over ── */
+        #overlay {
+            position: fixed; inset: 0; z-index: 20;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; background: rgba(6, 4, 14, 0.72); text-align: center;
+        }
+        #overlayTitle {
+            font-size: clamp(40px, 9vw, 96px); letter-spacing: 0.22em; margin: 0;
+            color: #e8e0f8; text-shadow: 0 0 26px rgba(139, 92, 246, 0.55);
+        }
+        #overlaySub { font-size: 14px; letter-spacing: 0.3em; color: #9fb4d8; }
+        #overlaySub .dim { color: #6d7796; letter-spacing: 0.18em; }
+
+        /* ── debug overlay (backquote) ── */
+        #debug {
+            position: fixed; left: 12px; bottom: 12px; z-index: 15; display: none;
+            background: rgba(8, 6, 20, 0.82); border: 1px solid #2a2a44; border-radius: 6px;
+            padding: 8px 10px; font-size: 11px; line-height: 1.5; white-space: pre;
+            color: #7CFFB0; pointer-events: none;
+        }
+    </style>
+    <!-- three r185, vendored locally (offline). Same import map index.html uses. -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "./lib/three/three.module.min.js",
+            "three/addons/": "./lib/three/addons/"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="hud">
+        <div id="hudTop">
+            <div class="panel">
+                <div class="label">SCORE</div>
+                <div class="val" id="hudScore">0</div>
+            </div>
+            <div class="panel">
+                <div class="label">LIVES</div>
+                <div class="val" id="hudLives">&times;3</div>
+            </div>
+        </div>
+        <div id="hudBottom">
+            <div class="panel">
+                <div class="label">LEVEL</div>
+                <div class="val" id="hudLevel">&mdash;</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <h1 id="overlayTitle">GUMOI</h1>
+        <div id="overlaySub">THE LATTICE BREAK<br><span class="dim">press any key</span></div>
+    </div>
+
+    <div id="debug"></div>
+
+    <script type="module">
+        import { boot } from './src/shmup/game.js';
+        boot({
+            overlay: document.getElementById('overlay'),
+            overlayTitle: document.getElementById('overlayTitle'),
+            overlaySub: document.getElementById('overlaySub'),
+            debug: document.getElementById('debug'),
+            score: document.getElementById('hudScore'),
+            lives: document.getElementById('hudLives'),
+            level: document.getElementById('hudLevel')
+        });
+    </script>
+</body>
+</html>
