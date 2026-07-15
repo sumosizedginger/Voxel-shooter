@@ -43,9 +43,9 @@ verify the work against this document.
    Pure-logic modules (bullets, wave gauge, level director) should be written
    import-clean (no THREE, no window) exactly like `engine/collision.js` is, so
    they can be unit-tested headlessly.
-5. **The game page is `game.html`** at repo root. `index.html` remains the
-   engine smoke test. (We may promote game.html to index.html at the very end —
-   not before.)
+5. **The game page is `index.html`** (promoted; `game.html` is the same entry).
+   Engine kit smoke lives at **`kit.html`**. (Promotion completed in the
+   presentation pass — see COMPLETION.md.)
 6. **The story has landed.** The narrative is
    [docs/story-bible.html](docs/story-bible.html), integrated via
    [NARRATIVE_PLAN.md](NARRATIVE_PLAN.md). Content systems stay data-driven
@@ -167,18 +167,18 @@ High scores already work via `addScore`. Difficulty multipliers
 ## 3. Phases
 
 ### Phase 0 — Scaffolding
-- [ ] `game.html`: import map, fullscreen canvas comes from `renderer.js`
+- [x] `game.html`: import map, fullscreen canvas comes from `renderer.js`
       (it appends its own canvas on import), minimal HUD `<div>` overlay,
       "click / press any key to start" gate (needed anyway: `initAudio()`
       requires a user gesture).
-- [ ] `src/shmup/input.js`: keyboard (arrows + WASD move, Z/J fire & charge,
+- [x] `src/shmup/input.js`: keyboard (arrows + WASD move, Z/J fire & charge,
       X/K Force detach/recall, Esc/P pause) and Gamepad API (left stick/dpad,
       face buttons). Expose a polled snapshot: `input.axisX/axisY` (−1..1),
       `input.fire`, `input.firePressed`, `input.fireReleased`, `input.force`,
       `input.pause`. Edge-detection (`*Pressed/*Released`) computed once per
       frame in `input.update()`. Respect `getSetting('keybindings')` shape but
       defaults are fine for now.
-- [ ] `src/shmup/game.js`: the state machine (`TITLE → PLAYING → DEATH →
+- [x] `src/shmup/game.js`: the state machine (`TITLE → PLAYING → DEATH →
       RESPAWN → GAMEOVER`, plus `PAUSED`) and the main loop:
       `dt = Math.min(0.05, clock.getDelta())` (engine convention),
       `renderer.info.reset()` once per frame (the engine sets
@@ -191,55 +191,55 @@ High scores already work via `addScore`. Difficulty multipliers
   console errors.
 
 ### Phase 1 — Camera + playfield
-- [ ] `src/shmup/camera.js` per §2.2.
-- [ ] A placeholder level object `{ scrollSpeed: 2.5, length: 300, backgroundLayers: [] }`.
-- [ ] Debug overlay (toggle with backquote) showing scrollX, player bounds, fps.
+- [x] `src/shmup/camera.js` per §2.2.
+- [x] A placeholder level object `{ scrollSpeed: 2.5, length: 300, backgroundLayers: [] }`.
+- [x] Debug overlay (toggle with backquote) showing scrollX, player bounds, fps.
 - **Done when:** the camera glides right at constant speed over a ground of
   test voxel blocks, and the visible band matches `playerBounds()` (verify by
   placing marker meshes at the four corners).
 
 ### Phase 2 — Player ship + bullets + first blood (vertical slice)
-- [ ] Ship asset: follow **[SHIP_PLAN.md](SHIP_PLAN.md)** (companion document —
+- [x] Ship asset: follow **[SHIP_PLAN.md](SHIP_PLAN.md)** (companion document —
       voxel recipe, palette, rig structure with separate emissive glow meshes,
       animation states, and its own spec + acceptance criteria). Key rule from
       it: baked voxel colors can't glow; bloom-lit parts (canopy, engine,
       muzzle) are separate emissive meshes, `buildGlowEyes`-style.
-- [ ] `src/shmup/player.js`: movement — velocity from input axes ×
+- [x] `src/shmup/player.js`: movement — velocity from input axes ×
       speed (base 9 u/s), clamped to `playerBounds()`. Ship drifts forward
       automatically with the scroll (it must never be pushed off the left edge:
       min-x clamp does that inherently).
-- [ ] `src/shmup/bullets.js` (import-clean, unit-testable): pool create/spawn/
+- [x] `src/shmup/bullets.js` (import-clean, unit-testable): pool create/spawn/
       update/collide helpers operating on plain arrays. Separate pools for
       player shots and enemy shots. + `tests/bullets.spec.mjs`.
-- [ ] `src/shmup/bulletmesh.js`: InstancedMesh renderer for the pools (THREE
+- [x] `src/shmup/bulletmesh.js`: InstancedMesh renderer for the pools (THREE
       side, per §2.4).
-- [ ] Basic shot: tap/hold fire → small bolts at 8/s, speed 24 u/s, despawn
+- [x] Basic shot: tap/hold fire → small bolts at 8/s, speed 24 u/s, despawn
       off-screen right (+2 units past bound).
-- [ ] `src/shmup/enemies/` — pool + `patterns.js` (§2.6) + spawn function.
+- [x] `src/shmup/enemies/` — pool + `patterns.js` (§2.6) + spawn function.
       Enemy models per **[ASSETS_PLAN.md](ASSETS_PLAN.md)** §2 (roster,
       registry pattern, shared-geometry rule). One test wave: five `sineDrift`
       drones entering from the right that die in one hit, explode (particles
       + sfx), and award score.
-- [ ] Explosion FX: `world.particles.spawnDustBurst(x, y, 0, n)` works mid-air,
+- [x] Explosion FX: `world.particles.spawnDustBurst(x, y, 0, n)` works mid-air,
       but shards bounce on a y≈0 floor and the shockwave ring lies flat in XZ
       (`particles.js` assumes a ground plane). For Phase 2 use dust bursts
       only; Phase 8 adds a proper side-view explosion (see gotcha G4).
-- [ ] SFX: extend the `sfx` object pattern — add `shoot`, `boom`, `hit` built
+- [x] SFX: extend the `sfx` object pattern — add `shoot`, `boom`, `hit` built
       from `playTone`/`playNoise` in a NEW `src/shmup/sfx.js` (don't edit
       `audio/synth.js`; import its primitives).
-- [ ] Player death: any enemy, enemy bullet, or terrain overlap kills instantly
+- [x] Player death: any enemy, enemy bullet, or terrain overlap kills instantly
       → DEATH state (brief slow explosion) → respawn with 2s invulnerability
       (ship blinks) at the current scroll position. 3 lives → GAMEOVER.
 - **Done when:** you can fly, shoot, kill the wave, die, respawn, and game
   over — the complete core loop, playable start to finish.
 
 ### Phase 3 — Terrain + checkpoints
-- [ ] `src/shmup/terrain.js` per §2.3 + `tests/terrain.spec.mjs` (the remap:
+- [x] `src/shmup/terrain.js` per §2.3 + `tests/terrain.spec.mjs` (the remap:
       a box blocks at the right y; resolveMove slides in y).
-- [ ] Level data gains terrain entries: modular chunks from ASSETS_PLAN.md §6
+- [x] Level data gains terrain entries: modular chunks from ASSETS_PLAN.md §6
       (each chunk builder returns `{map, collisionBoxes}` together, and
       collision is always slightly smaller than the art).
-- [ ] Checkpoints: an ordered list of scroll-x positions in level data. Death
+- [x] Checkpoints: an ordered list of scroll-x positions in level data. Death
       → respawn scrolls back to the last passed checkpoint and **respawns the
       wave state from that point** (classic R-Type: death rewinds; this
       requires the level director (Phase 5) to be restartable-from-x — design
@@ -252,17 +252,17 @@ High scores already work via `addScore`. Difficulty multipliers
 
 **Amended by NARRATIVE_PLAN §2 (C3, C4, C5) — bible names and specs apply.**
 Visuals: ASSETS_PLAN.md §4/§5 with NARRATIVE_PLAN §1 renames + C7 violet rule.
-- [ ] **Siren Pulse** (`src/shmup/wavecannon.js`, gauge logic import-clean +
+- [x] **Siren Pulse** (`src/shmup/wavecannon.js`, gauge logic import-clean +
       spec): hold to charge through **three tiers** (~1.2s per tier). Tier 1
       fast/weak bolt, tier 2 workhorse piercing bolt, tier 3 siege beam that
       breaks boss guards, requires **Witness level ≥ 2**, and locks the Vessel
       in place 1.4s on release. Charge gauge on HUD (three-segment). Hold =
       charge, tap = shot (release under 0.25s).
-- [ ] **Hammer Round** (`src/shmup/hammer.js`): the secondary — 5-round spread
+- [x] **Hammer Round** (`src/shmup/hammer.js`): the secondary — 5-round spread
       at close range, single slug at long range (range decided by nearest
       enemy distance at fire time); slug knockback on bosses, 3 stacked slugs
       = stagger → weakpoint window. Weapon-switch input, 0.4s swap (C6).
-- [ ] **The Witness** (`src/shmup/force.js`): states `DOCKED_FRONT`,
+- [x] **The Witness** (`src/shmup/force.js`): states `DOCKED_FRONT`,
       `DOCKED_REAR`, `DOCKED_ABOVE`, `DOCKED_BELOW`, `DETACHED` (orbit).
       Absorbs small fire; reflects medium fire; intercepts one boss projectile
       per cooldown (3s unavailable after). Levels 1–3 via Witness shards:
@@ -272,12 +272,12 @@ Visuals: ASSETS_PLAN.md §4/§5 with NARRATIVE_PLAN §1 renames + C7 violet rule
       never dies, re-grabbable after death). **Mirror Counter** (double-tap
       dock key): 0.5s reflect field, 2× return speed — built here, taught in
       Level 5.
-- [ ] **The Council drones** (`src/shmup/drones.js`): 6 types (Needle, Mirror,
+- [x] **The Council drones** (`src/shmup/drones.js`): 6 types (Needle, Mirror,
       Cloak, Ghost, Scribe, Prophet — behaviors per bible §03/§14), max 2
       equipped via pre-mission loadout; mid-mission switch costs a Witness
       charge. Build Prophet + Needle first (L1–L2 need them); the rest land
       with the levels that teach them.
-- [ ] **Pickups** (`src/shmup/powerups.js`): carrier enemy drops a **Witness
+- [x] **Pickups** (`src/shmup/powerups.js`): carrier enemy drops a **Witness
       shard** on death; `B` grants Whisper Bits (max 2, weak homing, no
       absorb). No speed-ups (C4). No missiles (Prophet Drone covers homing).
 - **Done when:** all systems work together; losing a life keeps the Witness
@@ -293,19 +293,20 @@ stage-lint spec (§7), authoring tools (§8). The level authored here is
 terrain is the bible's organic tunnel, its recovery pickups are Witness
 shards, and its cast/interrupt elite enemies land with story system S2 in
 Phase 9A (author their waves now with plain fire; S2 upgrades them).
-- [ ] `src/shmup/level/director.js` (import-clean core + spec): the FULL
+- [x] `src/shmup/level/director.js` (import-clean core + spec): the FULL
       trigger vocabulary from LEVELS_PLAN §2 (wave, pickup, checkpoint,
       speed, lock, dialogue no-op, boss, end), fired once each when
       `atX <= scrollX`; `reset(toX)` for checkpoint rewind (§Phase 3),
       including the `recoveryOnly` pickup flag (LEVELS_PLAN §5 F1).
-- [ ] `src/shmup/level/formations.js`: the formation library (LEVELS_PLAN §3).
-- [ ] `src/shmup/level/level01.js`: Level 01 authored per LEVELS_PLAN §4–§5
+- [x] `src/shmup/level/formations.js`: the formation library (LEVELS_PLAN §3).
+- [x] `src/shmup/level/level01.js`: Level 01 authored per LEVELS_PLAN §4–§5
       pacing/fairness + bible §04 content (~10–14 waves, 2 checkpoints with
       recovery shards, carrier cadence, lock gauntlet, pre-boss breather).
       Parallax: 2–3 far layers at z ∈ [−10, −30] with `userData.scrollRate`
       0.2–0.6 (ASSETS_PLAN §7), beige-organic palette.
-- [ ] `tests/stagelint.spec.mjs` (LEVELS_PLAN §7) + director spec.
-- [ ] Authoring tools (LEVELS_PLAN §8): `?stage=&x=` URL params, `?god=1`,
+- [x] `tests/stagelint.spec.mjs` (LEVELS_PLAN §7) + director spec.
+- [x] Authoring tools (LEVELS_PLAN §8): `?stage=&x=` URL params, `?god=1`,
+      **`G` key toggles god mode**, `?dev=1` / Ctrl×10 full dev mode,
       trigger timeline in the debug overlay.
 - **Done when:** Level 01 plays start → boss trigger with difficulty applied
   from `difficultyMultipliers()`, checkpoint rewind replays the right waves
@@ -313,7 +314,7 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
   director specs pass.
 
 ### Phase 6 — Boss 01: The Beige Slope
-- [ ] `src/shmup/bosses/boss01.js`: the wall (bible §04 boss block is the
+- [x] `src/shmup/bosses/boss01.js`: the wall (bible §04 boss block is the
       spec — advancing wall, mouth array, announced-emotion casts, slow
       stacking, three phases including the three-wall split). Structure: a
       state machine of named phases with `{enter, update(dt), exit, hpGate}`;
@@ -322,7 +323,7 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
       architecture maps onto the mouth array directly. The mouth-cast
       announcements use S2 when it lands (Phase 9A); until then, plain
       timed telegraphs with the same timings.
-- [ ] Boss death: chained explosions over ~2.5s, big score, level end → level
+- [x] Boss death: chained explosions over ~2.5s, big score, level end → level
       clear tally (add `levelClearBonus` scoring) → back to TITLE (campaign
       flow lands in Phase 9A).
 - **Done when:** the full Level-01 run is winnable and losable, boss HP
@@ -330,41 +331,46 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
   works (4 stacks = immobile, wall catches up, death).
 
 ### Phase 7 — HUD + game flow + scoring
-- [ ] HUD (DOM overlay in `game.html`, styled like the smoke test's `#hud`):
+- [x] HUD (DOM overlay in `game.html`, styled like the smoke test's `#hud`):
       score, hi-score (from `getScores()`), lives, **hull integrity bar**
       (C2), Siren Pulse gauge (three-segment, C3), Witness level, equipped
       Council drones + cooldowns. `reduceFlashing` setting: no full-screen
       flashes on death/beam when set. Comms line pool (story system S1,
       NARRATIVE_PLAN §4) is built in this phase.
-- [ ] Title screen (start, difficulty select writing `setSetting('difficulty')`),
+- [x] Title screen (start, difficulty select writing `setSetting('difficulty')`),
       pause overlay, game-over → continue (restart at checkpoint, score reset)
       or quit; stage-clear score tally; `addScore` on game over/clear.
 - **Done when:** a stranger could sit down, understand, and play a full credit
   with only the HUD to guide them.
 
 ### Phase 8 — Polish + hardening
-- [ ] Side-view explosion FX: add a new pooled burst to `src/shmup/fx.js`
+- [x] Side-view explosion FX: add a new pooled burst to `src/shmup/fx.js`
       (radial shards in XY, no floor bounce, shockwave ring rotated to face
       camera — i.e. NO rotation.x, it already faces +Z when unrotated is
       wrong; set `rotation.x = 0` so the ring lies in XY). Muzzle flashes,
       beam charge glow (emissive sphere growing at the nose).
-- [ ] Hide the kit's ambient petal rain in space levels
+      *(Landed in Phase 2; checkbox closed in completion pass.)*
+- [x] Hide the kit's ambient petal rain in space levels
       (`particles.petalMesh.visible = false`) or recolor/repurpose as star
       specks.
-- [ ] Quality tiers: verify `engine/quality.js` tiers still apply (showcase
+- [x] Quality tiers: verify `engine/quality.js` tiers still apply (showcase
       example binds them to keys 1/2/3 — do the same in a settings menu or
       keys).
-- [ ] Music: a minimal looping sequencer on top of `playTone` (bass line +
+- [x] Music: a minimal looping sequencer on top of `playTone` (bass line +
       arp, `channel: 'music'`) in `src/shmup/music.js`. Data-driven note
       arrays so real compositions can replace placeholders later.
+      *(Completion pass: ten theme tracks, one per level.)*
 - [ ] Optional (only with all tests green and updated): rename storage keys in
       `settings.js` from `vsbeu.*` to `rtype.*` + update `tests/settings.spec.mjs`
-      and the `window.vsbeuSettings` handle.
-- [ ] `tests/shmup-smoke.spec.mjs`: puppeteer spec that loads `game.html`,
+      and the `window.vsbeuSettings` handle. **Deliberately deferred** — it's
+      marked optional, `settings.js` is engine code (§1 forbids touching it
+      without cause), and a rename would strand existing saves for zero player-
+      facing gain. Revisit only if the kit's identity is fully dropped.
+- [x] `tests/shmup-smoke.spec.mjs`: puppeteer spec that loads `game.html`,
       starts a game via synthetic input, waits ~2s, asserts frames are drawing
       (`renderer.info` via `window.__engineKit`) and no page errors — mirror
       `tests/smoke.spec.mjs`.
-- [ ] Update `README.md` (game section) and `CHANGELOG.md`.
+- [x] Update `README.md` (game section) and `CHANGELOG.md`.
 
 ### Phase 9 — Campaign buildout (the ten levels)
 
@@ -375,13 +381,13 @@ Per level: new enemy reskins (ASSETS_PLAN template, registered so
 `assets.spec` covers them) → level systems → triggers (stage-lint green,
 with C8 flags where sanctioned) → boss → cutscenes/banter/codex → playtest
 against LEVELS_PLAN §4 pacing and §5 fairness.
-- [ ] **9A — Story core:** S2 cast/interrupt, S3 cutscene player, S4 codex
+- [x] **9A — Story core:** S2 cast/interrupt, S3 cutscene player, S4 codex
       archive, title screen with the seal, pre-mission loadout screen,
       campaign flow (level clear → next; progress via `setProgress`; L1
       cutscenes + banter wired; boss 01 casts upgraded to S2).
-- [ ] **9B — Levels 02–05:** Induction Parrot (S5), Jester Unbound (S6),
+- [x] **9B — Levels 02–05:** Induction Parrot (S5), Jester Unbound (S6),
       Smooth Operator (S7 + profanity.js), Mirror Break (S8).
-- [ ] **9C — Levels 06–10:** Redemption Arc, Forge Wraith (S9 + heat.js),
+- [x] **9C — Levels 06–10:** Redemption Arc, Forge Wraith (S9 + heat.js),
       Drift Wraith (asymmetry.js), Witness's Shadow (S8 extended),
       Corrupted Seal (S10) → the BETWEEN ending → credits with the seal as
       the final frame.
@@ -442,4 +448,50 @@ Rows marked ⟶ were superseded by NARRATIVE_PLAN §2 when the story landed.
 
 (Record anything done differently than planned, with a one-line why.)
 
-- _empty_
+- **Camera fov/z (Phase 1).** Took §2.2's own escape hatch: fov 50 at z 19.5
+  instead of fov 65 at z 22. At fov 65 the 16-unit playfield only filled the
+  screen at z≈14, which bent the screen edges badly under perspective.
+- **Vignette softened (Phase 1).** `vignettePass` uniforms retuned (offset
+  0.95→0.62). The kit's vignette is built for a brawler that keeps the action
+  centered; a shmup plays at the screen edges, where the default hid enemies as
+  they entered. Uniform tweak only — `renderer.js` is untouched.
+- **Ship rig origin (Phase 2).** SHIP_PLAN C2 says `geo.center()`; instead the
+  geometry is translated by `-SHIP_HIT_CENTER`. The bbox center sits at the
+  canopy line, so a 0.15-radius hit circle there hung out of the hull into empty
+  air and the player would die to shots that visibly missed. Same one-line rig
+  step, strictly fairer. Pinned by `tests/ship.spec.mjs`.
+- **`src/shmup/fx.js` landed in Phase 2, not Phase 8.** Phase 2 said "dust
+  bursts only". But per G4 the kit's particles assume a ground plane (shards
+  bounce at y≈0, the shockwave ring is rotated into XZ), so in a side view they
+  aren't a rough approximation — they're visibly wrong, and every explosion
+  would have been rewritten in Phase 8 anyway.
+- **Vessel rides the scroll (Phase 2).** Phase 2 allowed the min-x clamp to
+  carry the ship forward. It does, but it also pins her against the left screen
+  edge with nowhere to retreat, which is not how this genre moves. The Vessel
+  now advances at the scroll speed and the clamp is a safety net.
+- **All six Council drones built in Phase 4, not just Prophet+Needle.** The
+  plan said build two now and let the rest land with their levels. But all six
+  behaviors are small and fully specified in bible §03/§14, and the loadout
+  system needs the full set to be meaningful — building the other four now was
+  cheaper than a second pass, and they're inert until a level equips them.
+- **Weakpoint / stagger / guard-break plumbing added to enemies in Phase 4.**
+  The Hammer's 3-slug stagger and the violet-weakpoint 3× damage need state on
+  the enemy object; added now (dormant) so Phase 6's boss and Phase 9's
+  cast/interrupt don't have to retrofit the enemy struct.
+- **Phase 9 scope (superseded by completion pass).** The earlier approximation
+  note is historical. See [COMPLETION.md](COMPLETION.md). S2–S10 now ship as
+  real modules under `src/shmup/systems/`; L02–L10 have per-level wave scripts
+  + `systems` bags; bosses carry hard-fail/timeout/predict/temporal hooks;
+  music has ten tracks (32-step phrases). Presentation pass closed loadout UI,
+  L02–10 parallax/terrain dressing, bespoke boss shapes, cutscene dioramas,
+  word sprites, options/rebind, and `index.html` game entry.
+- **fx.js side-view explosions + petal-hiding landed early (Phases 2/0), so
+  Phase 8's first two items were already done** — Phase 8 only had to add music,
+  quality keys, the smoke spec, and docs.
+- **Storage-key rename (Phase 8 optional) deliberately skipped** — see its note
+  in the Phase 8 checklist. Engine code, optional, and it would strand saves.
+- **Ship hull value raised (Phase 2).** NARRATIVE §3 wants a dark hull;
+  SHIP_PLAN wants one that reads instantly against black. The first pass
+  (0x2b3040) lost — she was a silhouette-shaped hole. Hull is now a mid-dark
+  grey-blue, and the kintsugi was cut back to one seam per side (it had covered
+  ~40% of the hull, which made violet decorative and therefore meaningless, C7).

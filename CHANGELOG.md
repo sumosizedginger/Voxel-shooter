@@ -3,6 +3,66 @@
 All notable changes to this project are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased] — GUMOI: The Lattice Break
+
+The kit becomes a game: a horizontal R-Type III–style shmup built under
+`src/shmup/` with **`index.html` / `game.html`** as the play entry (engine smoke
+at `kit.html`). Story canon from `docs/story-bible.html` via `NARRATIVE_PLAN.md`.
+
+### Presentation pass
+- Pre-mission **2-slot Council loadout** (persisted) between title and launch.
+- In-game **OPTIONS** (volumes, reduce motion/flash/horror audio, key rebind).
+- L02–L10 **parallax** silhouettes, terrain dressing, and per-level sky tints.
+- **Bespoke boss body shapes** for bosses 02–10.
+- Cutscene **voxel dioramas** (GUMOI bust + stage prop); `reduceMotion` skips them.
+- **Word-bullet sprites** via `makeWordTexture`; expanded SFX + 32-step music.
+- Accessibility: `reduceMotion` suppresses camera shake.
+- README leads with the game; kit smoke relocated to `kit.html`.
+
+### Added
+- **Phase 0–1** — game shell (title/pause/gameover state machine, main loop),
+  keyboard + gamepad input with same-frame tap buffering, an auto-scroll
+  side-view camera with `playerBounds()`, shake, and parallax; a side-view
+  light rig on top of the kit's lights.
+- **Phase 2** — the vertical slice: the Vessel (voxel ship with separate
+  emissive glow meshes; kintsugi scars as the hull-integrity display),
+  import-clean bullet pools (pierce, bounded homing), instanced bullet
+  rendering, the seven-archetype enemy roster as data + pattern/fire functions,
+  side-view explosion FX (XY shards, camera-facing shockwave rings), and an SFX
+  kit. Hull integrity: chip damage from fire, lethal collisions.
+- **Phase 3** — terrain collision via a Y→Z relabel of the engine's
+  `CollisionWorld`; chunk builders that author art and collision together
+  (collision always inset inside the art); checkpoint rewind.
+- **Phase 4** — the arsenal: three-tier Siren Pulse (Witness-gated tier 3),
+  Hammer Round (range-decided spread/slug, 3-slug boss stagger), the Witness
+  force unit (four docks + orbit, absorb/reflect, shard levels 1–3, Mirror
+  Counter, never dies), all six Council drones with a two-slot loadout, and
+  Whisper Bits. Speed-ups and missiles cut per the bible.
+- **Phase 5** — the level director (full trigger vocabulary, `reset(toX)`
+  rewind), a formation grammar, Level 01 (The Beige Slope) authored as data,
+  a stage-lint test, and `?x=`/`?god=1` authoring tools.
+- **Phase 6** — Boss 01: an advancing wall of announcing mouths across three
+  phases (advance → pulse → three-way split); interrupt an announcement to open
+  its violet weakpoint; the slow-stack pin as the failure state.
+- **Phase 7** — full HUD (score, hi-score, lives, hull bar, Siren gauge,
+  Witness level, drones, boss bar), title + difficulty select, continue/quit,
+  stage-clear tally, `addScore`, and the S1 cockpit comms line pool (verbatim
+  bible lines).
+- **Phase 8** — a data-driven music sequencer (`music.js`), quality-tier keys
+  (1/2/3), volume-channel sync to settings, and `tests/shmup-smoke.spec.mjs`.
+- **Phase 9** — ten-level campaign, codex, BETWEEN ending, generic bosses 02–10.
+- **Completion pass** — full NARRATIVE S2–S10 systems under `src/shmup/systems/`
+  (cast/interrupt, cine cutscenes, mimic, arena modifiers, profanity key, input
+  recorder + shadow ghost, heat meter, movement predictor, temporal loop);
+  per-level wave scripts + `systems` bags; boss hard-fail/timeout/temporal
+  hooks; ten music tracks; cast tags + system meter HUD; `tests/systems.spec.mjs`;
+  [COMPLETION.md](COMPLETION.md).
+- **Authoring keys** — **`G`** toggles god mode (badge + score off); **Ctrl×10**
+  full dev mode; Profanity Key is **`F`** only (G freed for god).
+- New pure-node specs: `ship`, `assets`, `bullets`, `terrain`, `arsenal`,
+  `director`, `stagelint`, `comms`, `campaign`, `systems` (all import-clean,
+  browser-free).
+
 ## [0.2.0] — 2026-07-13
 
 Professionalization pass: the kit went from "code that works" to a real

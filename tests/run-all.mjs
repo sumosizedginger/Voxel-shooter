@@ -7,6 +7,19 @@ import { createSink, summarize, writeStepSummary, printErrorAnnotations } from '
 import { run as runCollision } from './collision.spec.mjs';
 import { run as runHitbox } from './hitbox.spec.mjs';
 import { run as runSettings } from './settings.spec.mjs';
+// ── GUMOI: The Lattice Break (src/shmup) ──
+import { run as runShip } from './ship.spec.mjs';
+import { run as runAssets } from './assets.spec.mjs';
+import { run as runBullets } from './bullets.spec.mjs';
+import { run as runTerrain } from './terrain.spec.mjs';
+import { run as runArsenal } from './arsenal.spec.mjs';
+import { run as runDirector } from './director.spec.mjs';
+import { run as runStagelint } from './stagelint.spec.mjs';
+import { run as runComms } from './comms.spec.mjs';
+import { run as runCampaign } from './campaign.spec.mjs';
+import { run as runSystems } from './systems.spec.mjs';
+import { run as runPresentation } from './presentation.spec.mjs';
+import { run as runShipquality } from './shipquality.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -25,11 +38,64 @@ async function main() {
     await runSettings(settings);
     sinks.push(settings);
 
+    const ship = createSink('ship');
+    runShip(ship);
+    sinks.push(ship);
+
+    const assets = createSink('assets');
+    runAssets(assets);
+    sinks.push(assets);
+
+    const bullets = createSink('bullets');
+    runBullets(bullets);
+    sinks.push(bullets);
+
+    const terrain = createSink('terrain');
+    runTerrain(terrain);
+    sinks.push(terrain);
+
+    const arsenal = createSink('arsenal');
+    runArsenal(arsenal);
+    sinks.push(arsenal);
+
+    const director = createSink('director');
+    runDirector(director);
+    sinks.push(director);
+
+    const stagelint = createSink('stagelint');
+    runStagelint(stagelint);
+    sinks.push(stagelint);
+
+    const comms = createSink('comms');
+    runComms(comms);
+    sinks.push(comms);
+
+    const campaign = createSink('campaign');
+    runCampaign(campaign);
+    sinks.push(campaign);
+
+    const systems = createSink('systems');
+    runSystems(systems);
+    sinks.push(systems);
+
+    const presentation = createSink('presentation');
+    runPresentation(presentation);
+    sinks.push(presentation);
+
+    const shipquality = createSink('shipquality');
+    runShipquality(shipquality);
+    sinks.push(shipquality);
+
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');
         const smoke = createSink('smoke');
         await runSmoke(smoke);
         sinks.push(smoke);
+
+        const { run: runShmupSmoke } = await import('./shmup-smoke.spec.mjs');
+        const shmupSmoke = createSink('shmup-smoke');
+        await runShmupSmoke(shmupSmoke);
+        sinks.push(shmupSmoke);
     }
 
     writeStepSummary(sinks);

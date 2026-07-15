@@ -1,3 +1,7 @@
 node_modules/
 *.log
 .DS_Store
+
+# Scratch QA / probe output (not part of the game)
+tmp/
+.tmp/

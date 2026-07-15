@@ -22,6 +22,7 @@ listed. Units: world units unless noted; angles in radians; durations in seconds
 - [combat/hitbox.js + combat/facing.js](#combathitboxjs--combatfacingjs)
 - [context.js](#contextjs)
 - [The `world` contract](#the-world-contract)
+- [shmup/systems (GUMOI S2–S10)](#shmupsystems-gumoi-s2s10)
 
 ---
 
@@ -272,3 +273,62 @@ a game that used a richer `world` (levels, waves, narrative state), only
 `world.level.theme`/`world.level._reflector` need to survive the port for
 `quality.js` to keep working — everything else was that game's own
 convention layered on top of the same empty object.
+
+---
+
+## `shmup/systems` (GUMOI S2–S10)
+
+Story and signature systems for **GUMOI: The Lattice Break**. All under
+`src/shmup/systems/`. Import from individual files or `systems/index.js`.
+Most modules are import-clean (no THREE) except `cutscene` (host injects
+cine helpers) and `words.makeWordTexture` (needs `document` + THREE).
+
+See [COMPLETION.md](../COMPLETION.md) and [NARRATIVE_PLAN.md](../NARRATIVE_PLAN.md) §4.
+
+| Module | Role | Key exports |
+|---|---|---|
+| `cast.js` | S2 cast/interrupt | `startCast`, `tickCast`, `interruptCast`, `maybeAssignCast` |
+| `copybuffer.js` | S5 mimic fire | `fireMimic`, `recordShot`, `clearBuffer` |
+| `modifiers.js` | S6 arena mods | `createModStack`, `pushMod`, `hasMod`, `transformInput`, `screenPushDelta` |
+| `profanity.js` | S7 Profanity Key | `createProfanity`, `tryProfanity`, `updateProfanity` |
+| `words.js` | S7 word effects | `WORD_EFFECTS`, `applyWordHit` (load-bearing); `makeWordTexture` used by `bulletmesh` word sprites |
+| `loadout.js` | Pre-mission Council seats | `normalizeLoadout`, `saveLoadout`, `loadSavedLoadout`, `cycleSeat` |
+| `council.js` | Seat table (import-clean) | `COUNCIL`, `DRONE_TYPES`, `MAX_DRONES` |
+| `level/stagecraft.js` | L02–10 stage feel | `buildStageTerrain`, `parallaxLayers`, `skyForLevel` |
+| `assets/parallax.js` | Theme silhouettes | `parallaxForLevel`, per-theme builders |
+| `assets/bossBodies.js` | Boss 02–10 shapes | `buildBossBody`, `BOSS_BODY_BUILDERS` |
+| `assets/diorama.js` | Cutscene props | `createCutsceneDiorama`, `disposeDiorama` |
+| `inputrec.js` | S8 recorder | `createRecorder`, `recordFrame`, `sampleAt` |
+| `heat.js` | L7 heat meter | `createHeat`, `updateHeat`, `heatWeaponsOffline` |
+| `predictor.js` | S9 motion class | `createPredictor`, `recordMotion`, `interceptAngle` |
+| `asymmetry.js` | L8 scorer | `createAsymmetry`, `updateAsymmetry`, `asymmetryDamageMult` |
+| `temporal.js` | S10 τ² loop | `createTemporalLoop`, `startTemporal`, `updateTemporal` |
+| `cutscene.js` | S3 cine player | `createCutscenePlayer`, `playCutscene`, `updateCutscene`, `levelOpenCutscene` |
+
+### Level `systems` bag
+
+Each campaign level may set:
+
+```
+systems: {
+  cast, mimic, modifiers, profanity, shadow, shadowDelay, shadowRamp,
+  contradiction, replayShots, heat, predictor, asymmetry, temporal
+}
+```
+
+`game.js` `armLevelSystems()` wires these into `world.*` for the boss/player loop.
+
+### Controls (shmup)
+
+| Action | Default | Notes |
+|---|---|---|
+| God mode | `G` (`input.god` / `KeyG`) | Toggle invincibility; score not recorded; `setGodMode` / `toggleGodMode` on `window.__gumoi`. Badge `#godBadge`. |
+| Profanity Key | `F` | Cancels nearest `onlyProfanity` word-bullet (1.2 s CD). Witness will **not** absorb those. |
+| Debug overlay | `` ` `` (Backquote) | Collision wires + timeline |
+| Skip cutscene | Fire / Enter | After 0.35 s grace in `CUTSCENE` state |
+| Dev mode | Ctrl ×10 or `?dev=1` | God + debug + skip cutscenes; Shift+1…0 level warp |
+| Author URL | `?god=1`, `?skipcs=1`, `?x=` | See README |
+
+`input.js` bindings include `god: ['KeyG']` and `profanity: ['KeyF']` (gamepad:
+button 10 / 6 respectively).
+
