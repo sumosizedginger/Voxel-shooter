@@ -12,6 +12,7 @@ import { run as runShip } from './ship.spec.mjs';
 import { run as runAssets } from './assets.spec.mjs';
 import { run as runBullets } from './bullets.spec.mjs';
 import { run as runTerrain } from './terrain.spec.mjs';
+import { run as runArsenal } from './arsenal.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -45,6 +46,10 @@ async function main() {
     const terrain = createSink('terrain');
     runTerrain(terrain);
     sinks.push(terrain);
+
+    const arsenal = createSink('arsenal');
+    runArsenal(arsenal);
+    sinks.push(arsenal);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');

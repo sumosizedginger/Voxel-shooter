@@ -17,6 +17,7 @@ import { FOE_PALETTE } from '../palette.js';
 import { shatter, explode } from '../fx.js';
 import { sfx } from '../sfx.js';
 import { despawnX } from '../camera.js';
+import { decayStacks } from '../hammer.js';
 
 const MAX_ENEMIES = 64;
 
@@ -90,7 +91,12 @@ function blankEnemy() {
         hitFlash: 0,
         // S2 (Phase 9A) hangs its cast state here; nothing reads it yet.
         cast: null, castT: 0,
-        staggered: 0
+        staggered: 0,
+        /** The violet window: interrupted casts and Scribe marks open it. 3x damage. */
+        weakpointT: 0,
+        marked: 0,
+        guardBroken: false,
+        slugStacks: 0, slugStackT: 0
     };
 }
 
@@ -224,6 +230,9 @@ export function updateEnemies(pool, dt, world) {
         }
 
         if (e.hitFlash > 0) e.hitFlash -= dt;
+        if (e.weakpointT > 0) e.weakpointT -= dt;
+        if (e.marked > 0) e.marked -= dt;
+        decayStacks(e, dt);
 
         if (e.mesh) {
             e.mesh.position.set(e.x, e.y, 0);

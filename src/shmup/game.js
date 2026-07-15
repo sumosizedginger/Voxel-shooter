@@ -16,14 +16,16 @@ import { world } from '../context.js';
 import { input, initInput, updateInput, consumeAnyKey } from './input.js';
 import {
     updateShmupCamera, setScrollX, playerBounds, spawnX, despawnX,
-    scrollX, PLAY_Y, PLAY_MIN_Y, PLAY_MAX_Y, clearShake
+    scrollX, PLAY_Y, PLAY_MIN_Y, PLAY_MAX_Y, clearShake, shakeCamera
 } from './camera.js';
 import { TERRAIN_SCALE } from './assets/terrain.js';
 import { Terrain } from './terrain.js';
 import { buildTerrain } from './level/build.js';
 import { createPool, updateBullets, collideBullets, clearPool, firstHit, kill } from './bullets.js';
 import { BulletRenderer } from './bulletmesh.js';
-import { createPlayer, updatePlayer, damagePlayer, killPlayer, respawnPlayer, HIT_R } from './player.js';
+import {
+    createPlayer, updatePlayer, damagePlayer, killPlayer, respawnPlayer, setPulseShake
+} from './player.js';
 import {
     initEnemies, createEnemyPool, spawnEnemy, updateEnemies, damageEnemy,
     clearEnemies
@@ -31,6 +33,11 @@ import {
 import { circleHit } from './bullets.js';
 import { initFx, updateFx, clearFx, sparkHit } from './fx.js';
 import { sfx } from './sfx.js';
+import { createWitness, updateWitness, orphanWitness, recallWitness } from './force.js';
+import { createDrones, equipDrones, updateDrones, refreshPerLife } from './drones.js';
+import { createPickups, updatePickups, clearPickups, clearBits } from './powerups.js';
+import { applySlug, decayStacks } from './hammer.js';
+import { tierProgress as pulseTierProgress } from './wavecannon.js';
 
 export const STATE = {
     TITLE: 'TITLE',
@@ -153,7 +160,19 @@ function resolveCollisions(dt) {
 
     // player shots -> enemies
     collideBullets(world.bullets, world.enemies.items, (b, e) => {
-        damageEnemy(world.enemies, e, b.dmg, world);
+        let dmg = b.dmg;
+        // A Hammer slug staggers on the third hit (bible §03). The stagger IS
+        // the reward — it's what opens the weakpoint window.
+        if (b.isSlug) {
+            if (applySlug(e)) sfx.hammerStagger();
+            e.x += b.knockback || 0;                  // "small but consistent"
+        }
+        // The violet weakpoint (C7): interrupted casts and Scribe marks both
+        // open one, and it takes triple damage (bible §04).
+        if (e.weakpointT > 0 || e.marked > 0) dmg *= 3;
+        // Tier-3 Pulse and the level-3 Witness stab break guards.
+        if (b.breaksGuard) e.guardBroken = true;
+        damageEnemy(world.enemies, e, dmg, world);
     });
 
     if (!p.alive) return;
@@ -217,6 +236,44 @@ function renderHud() {
         dom.hull.style.background = pct > 60 ? '#7fd8ff' : (pct > 25 ? '#8b5cf6' : '#ff4d6d');
     }
     if (dom.level && world.level) dom.level.textContent = world.level.name;
+
+    // ── Siren Pulse gauge: three segments, filling as she charges (C3).
+    if (dom.pulseSegs && player) {
+        const wl = world.witness ? world.witness.level : 0;
+        const tier = player.charge.tier;
+        const into = pulseTierProgress(player.charge, wl);
+        for (let i = 0; i < dom.pulseSegs.length; i++) {
+            const seg = dom.pulseSegs[i];
+            const filled = i < tier;
+            const filling = i === tier;
+            const locked = i === 2 && wl < 2;    // tier 3 needs Witness >= 2
+            seg.style.background = filled
+                ? (i === 2 ? '#dffaff' : '#7fd8ff')
+                : (locked ? '#2a2030' : '#171a2c');
+            seg.style.opacity = filling ? (0.4 + into * 0.6) : 1;
+            seg.style.boxShadow = filled ? '0 0 6px #7fd8ff' : 'none';
+        }
+    }
+
+    // ── weapon + Witness + drones
+    if (dom.weapon && player) {
+        dom.weapon.textContent = player.weapon === 'pulse' ? 'SIREN' : 'HAMMER';
+        dom.weapon.style.opacity = player.swapT > 0 ? 0.4 : 1;
+    }
+    if (dom.witness) {
+        const w = world.witness;
+        dom.witness.textContent = w ? ('LV' + w.level + (w.interceptCd > 0 ? ' ·' : '')) : '—';
+    }
+    if (dom.drones && world.drones) {
+        dom.drones.textContent = world.drones.equipped
+            .map((t) => t.slice(0, 3).toUpperCase()).join(' ') || '—';
+    }
+
+    // ── pickup label flash (R-Type's own convention)
+    if (dom.pickupFlash) {
+        dom.pickupFlash.textContent = pickupFlashT > 0 ? pickupFlash : '';
+        dom.pickupFlash.style.opacity = Math.min(1, pickupFlashT);
+    }
 }
 
 function renderDebug() {
@@ -240,6 +297,8 @@ let lastDrawCalls = 0;
 let fps = 0;
 let fpsAccum = 0;
 let fpsFrames = 0;
+let pickupFlash = '';
+let pickupFlashT = 0;
 
 // ── lifecycle ──────────────────────────────────────────────────────────────
 function startRun() {
@@ -250,11 +309,16 @@ function startRun() {
     clearPool(world.bullets);
     clearPool(world.enemyBullets);
     clearEnemies(world.enemies);
+    clearPickups(world.pickups);
+    clearBits(world.pickups);
     clearFx();
     clearShake();
+    world.deaths = 0;
+    world.diedSinceCheckpoint = false;
     setScrollX(0);
     respawnPlayer(player, playerBounds().minX + 4, PLAY_Y);
     player.lives = START_LIVES;
+    refreshPerLife(world.drones, player);        // the Ghost's phase charge
     setState(STATE.PLAYING);
 }
 
@@ -289,7 +353,13 @@ function respawnAfterDeath() {
     // F1: the recovery pickup only exists on a post-death run.
     world.diedSinceCheckpoint = true;
 
+    clearPickups(world.pickups);
+    clearBits(world.pickups);              // the Bits were never really hers
     respawnPlayer(player, playerBounds().minX + 4, PLAY_Y);
+    // The Witness kept its level through the death (bible §00: it never dies).
+    // It drifted free when she died; now it comes home.
+    recallWitness(world.witness, player);
+    refreshPerLife(world.drones, player);
     setState(STATE.PLAYING);
 }
 
@@ -300,7 +370,13 @@ function tickPlaying(dt) {
 
     updateTestWaves(dt);
     updatePlayer(player, dt, input, world);
+    updateDrones(world.drones, dt, player, world, input);
     updateEnemies(world.enemies, dt, world);
+    updatePickups(world.pickups, dt, player, world);
+    // The Witness ticks AFTER enemies fire but BEFORE resolveCollisions — a
+    // bullet it should eat must be gone before the player-collision pass runs,
+    // or the shield it's providing arrives a frame too late to matter.
+    updateWitness(world.witness, dt, player, world, input);
 
     // Bullets cull on a generous box around the screen — a bullet that leaves
     // is gone, and it must not cost anything to have left.
@@ -321,6 +397,7 @@ function frame() {
     elapsed += dt;
     stateT += dt;
     world.elapsedT = elapsed;
+    if (pickupFlashT > 0) pickupFlashT -= dt;
 
     fpsAccum += dt;
     fpsFrames++;
@@ -419,11 +496,24 @@ export function boot(domRefs) {
     world.bounds = playerBounds();
 
     // Callbacks the systems fire back into the shell.
-    world.onPlayerDied = () => setState(STATE.DEATH);
+    world.onPlayerDied = () => {
+        orphanWitness(world.witness);       // it detaches and drifts; it never dies
+        setState(STATE.DEATH);
+    };
     world.onEnemyShot = () => sfx.enemyShoot();
 
     bulletFx = new BulletRenderer(scene);
     player = createPlayer(scene, world);
+    createWitness(scene, world);
+    createDrones(scene, world);
+    createPickups(scene, world);
+    equipDrones(world.drones, ['prophet', 'needle']);   // default loadout (Phase 9A: loadout screen)
+
+    // Injected so the loop's systems can reach back without import cycles.
+    setPulseShake((amp, decay) => shakeCamera(amp, decay));
+    world.damageEnemy = (e, dmg) => damageEnemy(world.enemies, e, dmg, world);
+    world.flashPickup = (label) => { pickupFlash = label; pickupFlashT = 1.5; };
+    world.onEnemyKilled = () => {};
 
     window.addEventListener('resize', onResize);
     window.__engineKit = { renderer, composer, scene };

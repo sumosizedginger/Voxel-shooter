@@ -252,17 +252,17 @@ High scores already work via `addScore`. Difficulty multipliers
 
 **Amended by NARRATIVE_PLAN §2 (C3, C4, C5) — bible names and specs apply.**
 Visuals: ASSETS_PLAN.md §4/§5 with NARRATIVE_PLAN §1 renames + C7 violet rule.
-- [ ] **Siren Pulse** (`src/shmup/wavecannon.js`, gauge logic import-clean +
+- [x] **Siren Pulse** (`src/shmup/wavecannon.js`, gauge logic import-clean +
       spec): hold to charge through **three tiers** (~1.2s per tier). Tier 1
       fast/weak bolt, tier 2 workhorse piercing bolt, tier 3 siege beam that
       breaks boss guards, requires **Witness level ≥ 2**, and locks the Vessel
       in place 1.4s on release. Charge gauge on HUD (three-segment). Hold =
       charge, tap = shot (release under 0.25s).
-- [ ] **Hammer Round** (`src/shmup/hammer.js`): the secondary — 5-round spread
+- [x] **Hammer Round** (`src/shmup/hammer.js`): the secondary — 5-round spread
       at close range, single slug at long range (range decided by nearest
       enemy distance at fire time); slug knockback on bosses, 3 stacked slugs
       = stagger → weakpoint window. Weapon-switch input, 0.4s swap (C6).
-- [ ] **The Witness** (`src/shmup/force.js`): states `DOCKED_FRONT`,
+- [x] **The Witness** (`src/shmup/force.js`): states `DOCKED_FRONT`,
       `DOCKED_REAR`, `DOCKED_ABOVE`, `DOCKED_BELOW`, `DETACHED` (orbit).
       Absorbs small fire; reflects medium fire; intercepts one boss projectile
       per cooldown (3s unavailable after). Levels 1–3 via Witness shards:
@@ -272,12 +272,12 @@ Visuals: ASSETS_PLAN.md §4/§5 with NARRATIVE_PLAN §1 renames + C7 violet rule
       never dies, re-grabbable after death). **Mirror Counter** (double-tap
       dock key): 0.5s reflect field, 2× return speed — built here, taught in
       Level 5.
-- [ ] **The Council drones** (`src/shmup/drones.js`): 6 types (Needle, Mirror,
+- [x] **The Council drones** (`src/shmup/drones.js`): 6 types (Needle, Mirror,
       Cloak, Ghost, Scribe, Prophet — behaviors per bible §03/§14), max 2
       equipped via pre-mission loadout; mid-mission switch costs a Witness
       charge. Build Prophet + Needle first (L1–L2 need them); the rest land
       with the levels that teach them.
-- [ ] **Pickups** (`src/shmup/powerups.js`): carrier enemy drops a **Witness
+- [x] **Pickups** (`src/shmup/powerups.js`): carrier enemy drops a **Witness
       shard** on death; `B` grants Whisper Bits (max 2, weak homing, no
       absorb). No speed-ups (C4). No missiles (Prophet Drone covers homing).
 - **Done when:** all systems work together; losing a life keeps the Witness
@@ -463,6 +463,15 @@ Rows marked ⟶ were superseded by NARRATIVE_PLAN §2 when the story landed.
   carry the ship forward. It does, but it also pins her against the left screen
   edge with nowhere to retreat, which is not how this genre moves. The Vessel
   now advances at the scroll speed and the clamp is a safety net.
+- **All six Council drones built in Phase 4, not just Prophet+Needle.** The
+  plan said build two now and let the rest land with their levels. But all six
+  behaviors are small and fully specified in bible §03/§14, and the loadout
+  system needs the full set to be meaningful — building the other four now was
+  cheaper than a second pass, and they're inert until a level equips them.
+- **Weakpoint / stagger / guard-break plumbing added to enemies in Phase 4.**
+  The Hammer's 3-slug stagger and the violet-weakpoint 3× damage need state on
+  the enemy object; added now (dormant) so Phase 6's boss and Phase 9's
+  cast/interrupt don't have to retrofit the enemy struct.
 - **Ship hull value raised (Phase 2).** NARRATIVE §3 wants a dark hull;
   SHIP_PLAN wants one that reads instantly against black. The first pass
   (0x2b3040) lost — she was a silhouette-shaped hole. Hull is now a mid-dark

@@ -215,6 +215,7 @@ export function apexShot(e, dt, world) {
     if (!s.apex) return;
     s.apex = false;
     if (!world.player || !world.player.alive) return;
+    if (!onScreenEnough(e, world)) return;
     const v = aimAt(e.x, e.y, world.player, e.fireState.speed || 11);
     spawn(world.enemyBullets, {
         x: e.x, y: e.y, vx: v.vx, vy: v.vy,
@@ -227,8 +228,12 @@ export function apexShot(e, dt, world) {
  * Fairness gate (LEVELS_PLAN §5): nothing may shoot from off-screen right, and
  * nothing shoots once it's past the player's left edge — a bullet you cannot
  * see coming is not a difficulty, it's a lie.
+ *
+ * It also enforces the Cloak Drone's promise: while she's cloaked, nothing can
+ * aim at her, because nothing can see her.
  */
 function onScreenEnough(e, world) {
+    if (world.player && world.player.cloaked > 0) return false;
     if (!world.bounds) return true;
     return e.x < world.bounds.maxX + 1 && e.x > world.bounds.minX - 1;
 }

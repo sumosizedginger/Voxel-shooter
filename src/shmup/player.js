@@ -19,6 +19,10 @@ import { KIND, spawn } from './bullets.js';
 import { shatter, explode, muzzleFlash } from './fx.js';
 import { sfx } from './sfx.js';
 import { getSetting } from '../engine/settings.js';
+import {
+    createCharge, updateCharge, releaseCharge, tierProgress, firePulse, PULSE_TIERS
+} from './wavecannon.js';
+import { createHammer, fireHammer, FIRE_RATE as HAMMER_RATE, SWAP_S } from './hammer.js';
 
 /** Base speed, world units/second. A per-level tuning constant (C4). */
 export const BASE_SPEED = 9;
@@ -50,6 +54,16 @@ export function createPlayer(scene, world) {
         speedScale: 1,
         /** Set by weapons that lock the Vessel (tier-3 Siren Pulse, 1.4 s). */
         locked: 0,
+        /** Cloak Drone: enemies stop aiming at her while this is up. */
+        cloaked: 0,
+
+        // ── the arsenal (C6: she carries both, and the switch costs 0.4 s)
+        weapon: 'pulse',            // 'pulse' | 'hammer'
+        swapT: 0,
+        charge: createCharge(),
+        hammer: createHammer(),
+        /** S5 (Level 02): the mimic-drones copy this. A weapon switch clears it. */
+        lastShot: null,
 
         rig, parts, voxMap,
         _t: 0,
@@ -73,8 +87,14 @@ export function respawnPlayer(p, x, y = 8) {
     p.invuln = INVULN_S;
     p.speedScale = 1;
     p.locked = 0;
+    p.cloaked = 0;
+    p.swapT = 0;
+    p.weapon = 'pulse';
+    p.charge = createCharge();
+    p.lastShot = null;
     p.rig.visible = true;
     p.rig.rotation.set(0, 0, 0);
+    p.parts.muzzle.scale.setScalar(0.001);
     sfx.respawn();
 }
 
@@ -131,6 +151,7 @@ export function updatePlayer(p, dt, input, world) {
 
     if (p.invuln > 0) p.invuln -= dt;
     if (p.locked > 0) p.locked -= dt;
+    if (p.cloaked > 0) p.cloaked -= dt;
 
     // ── movement
     const b = playerBounds();
@@ -157,14 +178,98 @@ export function updatePlayer(p, dt, input, world) {
     p.x = Math.max(b.minX, Math.min(b.maxX, p.x));
     p.y = Math.max(b.minY, Math.min(b.maxY, p.y));
 
-    // ── basic shot (Phase 4 layers the Siren Pulse charge on top of this)
-    p._shotCd -= dt;
-    if (input.fire && p._shotCd <= 0 && !world.chargeOwnsFire) {
-        firePlayerBolt(p, world);
-        p._shotCd = 1 / SHOT_RATE;
+    updateWeapons(p, dt, input, world);
+    updateShipRig(p, dt, input);
+}
+
+/**
+ * The arsenal. Two weapons, one fire button, and a hold/tap discrimination on
+ * the Pulse — so "how long you press" and "which seat you're invoking" are the
+ * whole weapon interface. No weapon wheel, nothing to read.
+ */
+function updateWeapons(p, dt, input, world) {
+    if (p.swapT > 0) {
+        p.swapT -= dt;
+        return;                       // 0.4 s of nothing. The switch has a price.
     }
 
-    updateShipRig(p, dt, input);
+    // ── weapon switch (C6, bible §05: "Switching takes 0.4 seconds")
+    if (input.swapPressed) {
+        p.weapon = p.weapon === 'pulse' ? 'hammer' : 'pulse';
+        p.swapT = SWAP_S;
+        // Bible §05: "Switching weapons resets the copy buffer." The mimics in
+        // Level 02 read lastShot; clearing it here is what makes weapon-juggling
+        // the actual answer to the Parrot.
+        p.lastShot = null;
+        p.charge.held = 0;
+        p.charge.tier = 0;
+        p.charge.lastTier = 0;
+        p.charge.charging = false;
+        sfx.uiMove();
+        return;
+    }
+
+    const witnessLevel = world.witness ? world.witness.level : 0;
+    p._shotCd -= dt;
+
+    if (p.weapon === 'hammer') {
+        // The Hammer does not charge. It is a hammer.
+        if (input.fire && p._shotCd <= 0) {
+            const { mode } = fireHammer(world, p.x + 0.9, p.y);
+            muzzleFlash(p.x + 0.95, p.y, 0, 0xffc46b);
+            sfx.hammer();
+            p._shotCd = 1 / HAMMER_RATE;
+            p.lastShot = { weapon: 'hammer', mode };
+        }
+        p.parts.muzzle.scale.setScalar(0.001);
+        return;
+    }
+
+    // ── Siren Pulse: hold to charge, release to fire.
+    const { tierUp } = updateCharge(p.charge, dt, input.fire, witnessLevel);
+    if (tierUp) sfx.chargeTier(tierUp);
+
+    if (input.fireReleased) {
+        const shot = releaseCharge(p.charge, witnessLevel);
+        if (shot.type === 'tap') {
+            firePlayerBolt(p, world);
+            p.lastShot = { weapon: 'pulse', tier: 0 };
+        } else {
+            const b = firePulse(world, p.x + 0.95, p.y, shot.tier);
+            muzzleFlash(p.x + 1.0, p.y, 0, 0xdffaff);
+            sfx.pulse(shot.tier);
+            // Tier 3 roots her for 1.4 s (bible §03). She chose to plant her feet.
+            if (shot.lock) p.locked = shot.lock;
+            p.lastShot = { weapon: 'pulse', tier: shot.tier };
+            if (b && shot.tier >= 2) shakeOnPulse(shot.tier);
+        }
+    }
+
+    // Rapid fire while merely holding: the bolt stream runs until the charge
+    // reaches tier 1, at which point the Pulse takes the button over. This is
+    // what lets a player who never learns the charge still have a working gun —
+    // the charge is an upgrade to holding fire, not a replacement for it.
+    if (input.fire && p.charge.tier < 1 && p._shotCd <= 0) {
+        firePlayerBolt(p, world);
+        p._shotCd = 1 / SHOT_RATE;
+        p.lastShot = { weapon: 'pulse', tier: 0 };
+    }
+
+    // The charge orb at the nose: it grows with the charge. This is the tell,
+    // and it is on the ship rather than the HUD so the player never looks away.
+    // Kept small — UnrealBloom multiplies its apparent size, so a 0.1-unit
+    // sphere at tier 3 already reads as a fist of light. Bigger just erased the
+    // ship (and the docked Witness sitting right behind it).
+    const t = p.charge.tier + tierProgress(p.charge, witnessLevel);
+    p.parts.muzzle.scale.setScalar(p.charge.charging ? Math.max(0.001, 0.4 + t * 0.22) : 0.001);
+    p.parts.muzzleMat.emissiveIntensity = 1.6 + p.charge.tier * 0.5;
+}
+
+let _shakeFn = null;
+/** Injected by game.js to avoid a camera import cycle through player.js. */
+export function setPulseShake(fn) { _shakeFn = fn; }
+function shakeOnPulse(tier) {
+    if (_shakeFn) _shakeFn(tier >= 3 ? 0.4 : 0.14, 3.0);
 }
 
 export function firePlayerBolt(p, world) {

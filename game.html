@@ -41,6 +41,26 @@
             transition: width 0.12s linear, background 0.3s linear;
         }
 
+        /* Siren Pulse gauge — three segments (C3). */
+        #pulseGauge { display: flex; gap: 4px; margin-top: 4px; }
+        .pseg {
+            width: 60px; height: 8px; background: #171a2c;
+            border: 1px solid #2a2a44; border-radius: 3px;
+            transition: background 0.1s linear, opacity 0.1s linear;
+        }
+
+        #arsenal { min-width: 150px; }
+        .arow { display: flex; justify-content: space-between; gap: 14px; line-height: 1.7; }
+        .val.sm { font-size: 13px; }
+
+        #pickupFlash {
+            position: fixed; left: 50%; top: 38%; transform: translateX(-50%);
+            z-index: 12; pointer-events: none;
+            color: #e8e0f8; font-size: 22px; letter-spacing: 0.28em;
+            text-shadow: 0 0 18px rgba(139,92,246,0.7);
+            transition: opacity 0.2s linear;
+        }
+
         /* ── full-screen overlay: title / pause / game over ── */
         #overlay {
             position: fixed; inset: 0; z-index: 20;
@@ -88,6 +108,15 @@
             <div class="panel">
                 <div class="label">HULL INTEGRITY</div>
                 <div id="hullTrack"><div id="hullBar"></div></div>
+                <div class="label" style="margin-top:8px">SIREN PULSE</div>
+                <div id="pulseGauge">
+                    <div class="pseg"></div><div class="pseg"></div><div class="pseg"></div>
+                </div>
+            </div>
+            <div class="panel" id="arsenal">
+                <div class="arow"><span class="label">WEAPON</span> <span class="val sm" id="hudWeapon">SIREN</span></div>
+                <div class="arow"><span class="label">WITNESS</span> <span class="val sm" id="hudWitness">LV1</span></div>
+                <div class="arow"><span class="label">COUNCIL</span> <span class="val sm" id="hudDrones">&mdash;</span></div>
             </div>
             <div class="panel">
                 <div class="label">LEVEL</div>
@@ -95,6 +124,8 @@
             </div>
         </div>
     </div>
+
+    <div id="pickupFlash"></div>
 
     <div id="overlay">
         <h1 id="overlayTitle">GUMOI</h1>
@@ -113,7 +144,12 @@
             score: document.getElementById('hudScore'),
             lives: document.getElementById('hudLives'),
             hull: document.getElementById('hullBar'),
-            level: document.getElementById('hudLevel')
+            level: document.getElementById('hudLevel'),
+            pulseSegs: Array.from(document.querySelectorAll('#pulseGauge .pseg')),
+            weapon: document.getElementById('hudWeapon'),
+            witness: document.getElementById('hudWitness'),
+            drones: document.getElementById('hudDrones'),
+            pickupFlash: document.getElementById('pickupFlash')
         });
     </script>
 </body>
