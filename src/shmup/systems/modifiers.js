@@ -75,7 +75,8 @@ export function transformInput(stack, input) {
         pause: input.pause, pausePressed: input.pausePressed,
         debug: input.debug, debugPressed: input.debugPressed,
         skip: input.skip, skipPressed: input.skipPressed,
-        profanity: input.profanity, profanityPressed: input.profanityPressed };
+        profanity: input.profanity, profanityPressed: input.profanityPressed,
+        god: input.god, godPressed: input.godPressed };
 }
 
 /** screenPush: shove the vessel by a small vector each frame. */

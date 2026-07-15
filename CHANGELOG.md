@@ -47,6 +47,8 @@ The kit becomes a game: a horizontal R-Type III–style shmup built entirely und
   per-level wave scripts + `systems` bags; boss hard-fail/timeout/temporal
   hooks; ten music tracks; cast tags + system meter HUD; `tests/systems.spec.mjs`;
   [COMPLETION.md](COMPLETION.md).
+- **Authoring keys** — **`G`** toggles god mode (badge + score off); **Ctrl×10**
+  full dev mode; Profanity Key is **`F`** only (G freed for god).
 - New pure-node specs: `ship`, `assets`, `bullets`, `terrain`, `arsenal`,
   `director`, `stagelint`, `comms`, `campaign`, `systems` (all import-clean,
   browser-free).

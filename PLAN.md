@@ -306,6 +306,7 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
       0.2–0.6 (ASSETS_PLAN §7), beige-organic palette.
 - [x] `tests/stagelint.spec.mjs` (LEVELS_PLAN §7) + director spec.
 - [x] Authoring tools (LEVELS_PLAN §8): `?stage=&x=` URL params, `?god=1`,
+      **`G` key toggles god mode**, `?dev=1` / Ctrl×10 full dev mode,
       trigger timeline in the debug overlay.
 - **Done when:** Level 01 plays start → boss trigger with difficulty applied
   from `difficultyMultipliers()`, checkpoint rewind replays the right waves

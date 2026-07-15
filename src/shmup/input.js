@@ -20,7 +20,8 @@ export const DEFAULT_BINDINGS = {
     dock: ['KeyX', 'KeyK'],          // Witness detach / recall (double-tap = Mirror Counter)
     swap: ['KeyC', 'KeyL'],          // Siren Pulse <-> Hammer Round (C6)
     drone: ['KeyV', 'KeyH'],         // Council drone trigger
-    profanity: ['KeyF', 'KeyG'],     // L4 Profanity Key (S7) — cancels word-bullets
+    profanity: ['KeyF'],             // L4 Profanity Key (S7) — cancels word-bullets
+    god: ['KeyG'],                   // toggle god mode (invincible; score not recorded)
     pause: ['Escape', 'KeyP'],
     debug: ['Backquote'],
     skip: ['Enter', 'Space']         // cutscene / comms advance
@@ -28,7 +29,7 @@ export const DEFAULT_BINDINGS = {
 
 // Gamepad (standard mapping): 0=A/cross 1=B/circle 2=X/square 3=Y/triangle,
 // 9=start, 12-15 = dpad up/down/left/right.
-const PAD = { fire: [0, 7], dock: [1, 5], swap: [2, 4], drone: [3], profanity: [6], pause: [9], skip: [0, 9] };
+const PAD = { fire: [0, 7], dock: [1, 5], swap: [2, 4], drone: [3], profanity: [6], god: [10], pause: [9], skip: [0, 9] };
 const PAD_DPAD = { up: 12, down: 13, left: 14, right: 15 };
 const STICK_DEADZONE = 0.22;
 
@@ -62,6 +63,7 @@ export const input = {
     swap: false, swapPressed: false, swapReleased: false,
     drone: false, dronePressed: false, droneReleased: false,
     profanity: false, profanityPressed: false, profanityReleased: false,
+    god: false, godPressed: false, godReleased: false,
     pause: false, pausePressed: false,
     debug: false, debugPressed: false,
     skip: false, skipPressed: false,

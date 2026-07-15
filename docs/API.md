@@ -312,11 +312,17 @@ systems: {
 
 `game.js` `armLevelSystems()` wires these into `world.*` for the boss/player loop.
 
-### Controls
+### Controls (shmup)
 
 | Action | Default | Notes |
 |---|---|---|
-| Profanity Key | `F` / `G` | Cancels nearest `onlyProfanity` word-bullet (1.2 s CD). Witness will **not** absorb those. |
+| God mode | `G` (`input.god` / `KeyG`) | Toggle invincibility; score not recorded; `setGodMode` / `toggleGodMode` on `window.__gumoi`. Badge `#godBadge`. |
+| Profanity Key | `F` | Cancels nearest `onlyProfanity` word-bullet (1.2 s CD). Witness will **not** absorb those. |
+| Debug overlay | `` ` `` (Backquote) | Collision wires + timeline |
 | Skip cutscene | Fire / Enter | After 0.35 s grace in `CUTSCENE` state |
-| Author skip | `?skipcs=1` | Also implied by `?x=` |
+| Dev mode | Ctrl ×10 or `?dev=1` | God + debug + skip cutscenes; Shift+1…0 level warp |
+| Author URL | `?god=1`, `?skipcs=1`, `?x=` | See README |
+
+`input.js` bindings include `god: ['KeyG']` and `profanity: ['KeyF']` (gamepad:
+button 10 / 6 respectively).
 

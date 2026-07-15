@@ -168,6 +168,9 @@ machine-checkable without a browser. Run it on every stage as it's authored.
   live enemy/bullet counts, and collision wireframes.
 - `?god=1` → invincible ship for tuning runs (visibly watermarked "GOD" in
   the HUD so it can't be mistaken for a real run; scores not recorded).
+- **`G` key** toggles the same god mode at runtime (badge **GOD · score off**).
+- Full dev mode: **Ctrl ×10** or `?dev=1` (god + debug + skip cutscenes;
+  **Shift+1…0** warps levels). Profanity Key remains **`F`** only.
 
 ## 9. PLAN.md phase mapping
 

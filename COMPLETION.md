@@ -13,7 +13,7 @@ unchanged: [docs/story-bible.html](docs/story-bible.html) →
 | S3 cutscenes | Text-only comms | Cine camera shots + lines, skippable |
 | S5 copy/mimic | `lastShot` only | Mimic waves + Parrot `mirror` fire |
 | S6 arena modifiers | Absent | Full stack on Jester / Seal phases |
-| S7 word-bullets + profanity | Spawn tags only | Profanity Key (F/G) cancels words |
+| S7 word-bullets + profanity | Spawn tags only | Profanity Key (**F**) cancels words |
 | S8 input recorder / shadow | Absent | Recorder + delayed ghost (L5/L9) |
 | S9 heat + predictor | Absent | Heat meter + intercept forge (L7) |
 | S10 temporal loop | Absent | 12 s fold + weakpoint (L10 τ²) |
@@ -47,9 +47,11 @@ delay from that bag.
 
 | Action | Keys | Notes |
 |--------|------|-------|
-| Profanity | `F` / `G` | Cancels nearest word-bullet (1.2 s CD) |
+| God mode | `G` | Toggle invincibility; score not recorded; corner badge |
+| Profanity | `F` | Cancels nearest word-bullet (1.2 s CD) |
 | Skip cutscene | Fire / Enter / Space | After 0.35 s grace |
 | Author skip cutscene | `?skipcs=1` or `?x=` | Authoring tools |
+| Dev mode | Ctrl ×10 or `?dev=1` | God + debug + skip cutscenes; Shift+1…0 level warp |
 
 ## Boss signature facts
 
@@ -95,7 +97,11 @@ npm run serve
 # Level 4: F cancels DELVE/TAPESTRY/… word bullets
 # Level 7: thrash stick → HEAT OFFLINE
 # Level 8: fly asymmetrically → higher damage (ASYM meter)
+# G: toggle god mode anytime
 ```
+
+**God mode:** press **`G`** anytime (or `?god=1`). Invincible; scores suppressed;
+orange **GOD · score off** badge.
 
 **Secret dev mode:** tap **Ctrl** ten times (2.5 s max between taps). Enables
 god + debug + skip cutscenes; **Shift+1…0** warps levels. Ctrl×10 again to

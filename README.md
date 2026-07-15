@@ -43,14 +43,22 @@ http://localhost:8799/game.html).
   opening cutscenes, and a codex — story text verbatim from the
   [story bible](docs/story-bible.html).
 
-Authoring/debug: append `?x=<scrollX>` to start scrolled in, `?god=1` for an
-invincible tuning run (HUD-watermarked, score suppressed), `?skipcs=1` to skip
-opening cutscenes, `?dev=1` to start in dev mode, and backquote toggles the
-debug overlay. Keys **1/2/3** switch quality tiers.
+Authoring/debug:
+
+| Key / URL | Effect |
+|-----------|--------|
+| **`G`** | Toggle **god mode** (invincible; score not recorded; corner badge) |
+| `` ` `` (backquote) | Toggle debug overlay |
+| **`F`** | Profanity Key (L4 word-bullets only) |
+| **1 / 2 / 3** | Quality tiers (low / high / ultra) |
+| `?god=1` | Start with god mode on |
+| `?skipcs=1` | Skip opening cutscenes |
+| `?x=<scrollX>` | Start scrolled in (also skips cutscenes) |
+| `?dev=1` | Start in full dev mode |
 
 **Secret dev mode:** tap **Ctrl** ten times (either side; gaps &gt; 2.5 s reset
-the count). Toggles god mode + debug + cutscene skip with a center watermark.
-While active: **Shift+1…0** jump to levels 1–10. Tap Ctrl ×10 again to leave.
+the count). Toggles god + debug + cutscene skip with a center watermark.
+While active: **Shift+1…0** jump to levels 1–10. Ctrl×10 again to leave.
 
 All game code lives under `src/shmup/` + `game.html`; the kit's `src/engine/`,
 `src/voxel/`, `src/combat/`, and `src/audio/` are untouched.

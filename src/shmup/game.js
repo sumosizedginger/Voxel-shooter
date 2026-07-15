@@ -771,6 +771,8 @@ function frame() {
 
     updateInput(dt);
     if (input.debugPressed) debugOn = !debugOn;
+    // G toggles god mode anytime (dev convenience; also works outside full DEV).
+    if (input.godPressed) toggleGodMode();
     updateMusic(dt);
 
     const confirm = input.firePressed || input.skipPressed;
@@ -1052,6 +1054,7 @@ export function boot(domRefs) {
     skipCutscenes = params.get('skipcs') === '1' || params.has('x');
     if (params.has('debug')) debugOn = true;
     if (params.get('dev') === '1') setDevMode(true);
+    if (godMode && dom.godBadge) dom.godBadge.classList.add('on');
 
     // Boss signature callbacks
     world.onBossIntegrated = () => {
@@ -1070,7 +1073,10 @@ export function boot(domRefs) {
         setDebug: (on) => { debugOn = !!on; },
         timeline: () => levelTimeline(runner, 8),
         isDevMode: () => devMode,
-        setDevMode
+        setDevMode,
+        isGodMode: () => godMode,
+        setGodMode,
+        toggleGodMode
     };
 
     setScrollX(0);
@@ -1104,6 +1110,18 @@ function noteCtrlTap() {
     }
 }
 
+/** Toggle invincibility (KeyG). Scores are not recorded while god is on. */
+export function toggleGodMode() {
+    setGodMode(!godMode);
+}
+
+export function setGodMode(on) {
+    godMode = !!on;
+    if (dom.godBadge) dom.godBadge.classList.toggle('on', godMode);
+    if (world.flashPickup) world.flashPickup(godMode ? 'GOD ON' : 'GOD OFF');
+    if (godMode) sfx.uiConfirm(); else sfx.uiMove();
+}
+
 /**
  * Toggle the secret dev/authoring mode.
  * On: god mode, debug overlay, skip cutscenes, score suppressed, level warp.
@@ -1116,6 +1134,7 @@ export function setDevMode(on) {
         debugOn = true;
         skipCutscenes = true;
         if (dom.devBadge) dom.devBadge.classList.add('on');
+        if (dom.godBadge) dom.godBadge.classList.add('on');
         if (world.flashPickup) world.flashPickup('DEV MODE');
         sfx.uiConfirm();
     } else {
@@ -1125,6 +1144,7 @@ export function setDevMode(on) {
         debugOn = params.has('debug');
         skipCutscenes = params.get('skipcs') === '1' || params.has('x');
         if (dom.devBadge) dom.devBadge.classList.remove('on');
+        if (dom.godBadge) dom.godBadge.classList.toggle('on', godMode);
         if (world.flashPickup) world.flashPickup('DEV OFF');
         sfx.uiMove();
     }

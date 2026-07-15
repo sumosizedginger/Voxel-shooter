@@ -144,16 +144,23 @@
             color: #7CFFB0; pointer-events: none;
         }
 
-        /* Secret Ctrl×10 dev mode watermark */
-        #devBadge {
-            position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
-            z-index: 30; display: none; pointer-events: none;
-            font-size: 11px; letter-spacing: 0.28em; color: #7CFFB0;
-            background: rgba(8, 20, 12, 0.85); border: 1px solid #2a6a40;
+        /* God mode (G) + secret Ctrl×10 dev mode watermarks */
+        #godBadge, #devBadge {
+            position: fixed; z-index: 30; display: none; pointer-events: none;
+            font-size: 11px; letter-spacing: 0.28em;
             padding: 5px 14px; border-radius: 4px;
+        }
+        #godBadge {
+            top: 12px; right: 18px; color: #ffb070;
+            background: rgba(30, 14, 8, 0.85); border: 1px solid #6a4020;
+            text-shadow: 0 0 10px rgba(255, 160, 80, 0.5);
+        }
+        #devBadge {
+            top: 12px; left: 50%; transform: translateX(-50%); color: #7CFFB0;
+            background: rgba(8, 20, 12, 0.85); border: 1px solid #2a6a40;
             text-shadow: 0 0 10px rgba(124, 255, 176, 0.5);
         }
-        #devBadge.on { display: block; }
+        #godBadge.on, #devBadge.on { display: block; }
     </style>
     <!-- three r185, vendored locally (offline). Same import map index.html uses. -->
     <script type="importmap">
@@ -215,6 +222,7 @@
     </div>
 
     <div id="debug"></div>
+    <div id="godBadge">GOD · score off</div>
     <div id="devBadge">DEV MODE · god · debug · no score</div>
 
     <script type="module">
@@ -239,6 +247,7 @@
             comms: document.getElementById('comms'),
             castLayer: document.getElementById('castLayer'),
             sysMeter: document.getElementById('sysMeter'),
+            godBadge: document.getElementById('godBadge'),
             devBadge: document.getElementById('devBadge')
         });
     </script>
