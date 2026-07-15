@@ -23,11 +23,12 @@ Story canon: [docs/story-bible.html](docs/story-bible.html). Build authority:
 - **Ten-level campaign** — Beige Slope → Corrupted Seal → the BETWEEN ending.
   Per-level systems: mimic copy, arena modifiers, Profanity Key (**F**), delayed
   shadow, heat meter, asymmetry scorer, temporal fold.
-- **Presentation** — theme parallax + terrain dressing on every stage, bespoke
-  boss silhouettes (02–10), cinematic cutscenes on every **level open and boss
-  entry** (voxel dioramas: GUMOI bust + boss silhouette; `reduceMotion` skips
-  them), readable word-bullet sprites, 48-step ABC music phrases, and a full
-  options/a11y/rebind UI.
+- **Presentation** — theme parallax + terrain dressing on every stage, **bible-
+  accurate boss silhouettes** (02–10), cinematic cutscenes on every **level open
+  and boss entry** (voxel dioramas; `reduceMotion` skips them), readable word-
+  bullet sprites, chunkier bolt art, 48-step ABC music phrases, and a full
+  options/a11y/rebind UI. Gameplay HUD only appears mid-run (not on title/
+  loadout/options).
 
 ### Controls
 
@@ -39,7 +40,7 @@ Story canon: [docs/story-bible.html](docs/story-bible.html). Build authority:
 | Weapon swap | C / L |
 | Council drone | V / H |
 | Profanity Key | **F** (L4 word-bullets) |
-| God mode | **G** (score not recorded) |
+| God mode | **G** — full **immunity** (no damage/death); score not recorded |
 | Pause | Esc / P |
 | Title | fire → **LAUNCH** (loadout) / **OPTIONS** / codex |
 | Options | volumes, quality, a11y (motion/flash/HUD/shake/hold-fire), rebind, reset |
@@ -50,11 +51,14 @@ Authoring:
 |-----------|--------|
 | `` ` `` | Debug overlay |
 | **1 / 2 / 3** | Quality low / high / ultra |
-| `?god=1` | Start with god mode |
+| `?god=1` | Start with god mode (immunity) |
 | `?skipcs=1` | Skip opening cutscenes |
+| `?skiptips=1` | Skip first-run tips |
 | `?x=<scrollX>` | Start scrolled in |
 | `?dev=1` | Full dev mode |
-| Ctrl ×10 | Toggle dev mode (god + debug + skipcs; Shift+1…0 level jump) |
+| Ctrl ×10 | Toggle dev mode (god + debug + skipcs) |
+| **`[` / `]`** | Dev: previous / next level (score carries) |
+| Shift+1…0 | Dev: jump to level 1…10 |
 
 All game code lives under `src/shmup/` + `index.html` / `game.html`. The kit's
 `src/engine/`, `src/voxel/`, `src/combat/`, and `src/audio/` stay frozen unless

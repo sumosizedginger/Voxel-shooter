@@ -23,8 +23,10 @@ const PARKED = new THREE.Vector3(0, -9999, 0);
 // geometry + material per family. `emissive` families bloom (G3: only emissive
 // materials above the 0.85 threshold glow — never lower the threshold).
 function families() {
-    const boltGeo = new THREE.BoxGeometry(0.5, 0.08, 0.08);
-    const orbGeo = new THREE.SphereGeometry(0.12, 8, 6);
+    // Chunkier than "1px against the void" — still smaller than the ship core
+    // hitbox, but readable at gameplay zoom (ASSETS_PLAN R4 lives here).
+    const boltGeo = new THREE.BoxGeometry(0.62, 0.14, 0.14);
+    const orbGeo = new THREE.SphereGeometry(0.18, 10, 8);
 
     const basic = (color, opts = {}) =>
         new THREE.MeshBasicMaterial({ color, toneMapped: false, ...opts });
@@ -34,15 +36,15 @@ function families() {
 
     return {
         [KIND.PLAYER_BOLT]: { geo: boltGeo, mat: basic(BULLET_PALETTE.player), cap: 96 },
-        [KIND.BIT]: { geo: new THREE.BoxGeometry(0.3, 0.06, 0.06), mat: basic(BULLET_PALETTE.player), cap: 48 },
-        [KIND.PULSE_1]: { geo: new THREE.BoxGeometry(0.7, 0.14, 0.14), mat: glow(BULLET_PALETTE.player, 2.2), cap: 32 },
-        [KIND.PULSE_2]: { geo: new THREE.BoxGeometry(1.6, 0.34, 0.34), mat: glow(BULLET_PALETTE.playerHot, 2.8), cap: 16 },
-        [KIND.PULSE_3]: { geo: new THREE.BoxGeometry(2.6, 0.9, 0.9), mat: glow(BULLET_PALETTE.playerHot, 3.4), cap: 16 },
-        [KIND.HAMMER]: { geo: new THREE.BoxGeometry(0.34, 0.16, 0.16), mat: glow(BULLET_PALETTE.hammer, 1.8), cap: 48 },
+        [KIND.BIT]: { geo: new THREE.BoxGeometry(0.4, 0.1, 0.1), mat: basic(BULLET_PALETTE.player), cap: 48 },
+        [KIND.PULSE_1]: { geo: new THREE.BoxGeometry(0.85, 0.18, 0.18), mat: glow(BULLET_PALETTE.player, 1.9), cap: 32 },
+        [KIND.PULSE_2]: { geo: new THREE.BoxGeometry(1.7, 0.36, 0.36), mat: glow(BULLET_PALETTE.playerHot, 2.3), cap: 16 },
+        [KIND.PULSE_3]: { geo: new THREE.BoxGeometry(2.6, 0.9, 0.9), mat: glow(BULLET_PALETTE.playerHot, 2.8), cap: 16 },
+        [KIND.HAMMER]: { geo: new THREE.BoxGeometry(0.42, 0.2, 0.2), mat: glow(BULLET_PALETTE.hammer, 1.6), cap: 48 },
         [KIND.ENEMY_ORB]: { geo: orbGeo, mat: basic(BULLET_PALETTE.enemy), cap: 256 },
-        [KIND.ENEMY_HEAVY]: { geo: new THREE.BoxGeometry(0.6, 0.22, 0.22), mat: basic(BULLET_PALETTE.enemyHeavy), cap: 96 },
+        [KIND.ENEMY_HEAVY]: { geo: new THREE.BoxGeometry(0.72, 0.28, 0.28), mat: basic(BULLET_PALETTE.enemyHeavy), cap: 96 },
         // Under-glow for words; the readable label is a separate Sprite (below).
-        [KIND.WORD]: { geo: new THREE.BoxGeometry(0.55, 0.22, 0.1), mat: basic(BULLET_PALETTE.word, { transparent: true, opacity: 0.35 }), cap: 48 }
+        [KIND.WORD]: { geo: new THREE.BoxGeometry(0.65, 0.28, 0.12), mat: basic(BULLET_PALETTE.word, { transparent: true, opacity: 0.4 }), cap: 48 }
     };
 }
 

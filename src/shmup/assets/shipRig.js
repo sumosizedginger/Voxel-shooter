@@ -19,14 +19,15 @@ const S = SHIP_VOXEL_SCALE;
 // The canopy is a cockpit, not a searchlight. At emissiveIntensity 2.0 over a
 // 0.45-unit box, UnrealBloom smeared a cyan blob across the entire ship and the
 // silhouette vanished. Small and modest reads as "she's awake in there"; big and
-// bright reads as "the art is broken".
-const CANOPY_POS = [0.24, 0.30, 0];
-const CANOPY_SIZE = [0.30, 0.10, 0.20];
-const ENGINE_POS = [-0.92, 0.0, 0];
-const ENGINE_SIZE = [0.12, 0.22, 0.30];
+// bright reads as "the art is broken". Positions scale with SHIP_VOXEL_SCALE
+// (0.125); keep canopy modest relative to the larger hull.
+const CANOPY_POS = [0.30, 0.38, 0];
+const CANOPY_SIZE = [0.34, 0.12, 0.24];
+const ENGINE_POS = [-1.15, 0.0, 0];
+const ENGINE_SIZE = [0.15, 0.28, 0.38];
 const ENGINE_HALO_SCALE = 1.5;
-const MUZZLE_POS = [0.96, -0.05, 0];
-const MUZZLE_R = 0.1;
+const MUZZLE_POS = [1.20, -0.06, 0];
+const MUZZLE_R = 0.12;
 
 /** Scar glow: barely lit at full hull, blazing at death's door (C2). */
 export const SCAR_MIN = 0.35;

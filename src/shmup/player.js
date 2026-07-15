@@ -108,7 +108,9 @@ export function respawnPlayer(p, x, y = 8) {
  * Collisions do NOT come through here — see killPlayer().
  */
 export function damagePlayer(p, dmg, world) {
-    if (!p.alive || p.invuln > 0) return false;
+    // God mode = full immunity (chip included). Flag lives on world so every
+    // call site is covered without threading a boolean through the arsenal.
+    if (!p.alive || p.invuln > 0 || (world && world.godMode)) return false;
     p.hull -= dmg;
     sfx.hurt();
     if (world && world.onPlayerHurt) world.onPlayerHurt(dmg);
@@ -129,6 +131,8 @@ export function damagePlayer(p, dmg, world) {
  */
 export function killPlayer(p, world, fromCollision = false) {
     if (!p.alive || p._dead) return false;
+    // God mode = immunity: terrain, bodies, boss wall, timeout, hull-zero — none of it.
+    if (world && world.godMode) return false;
 
     if (fromCollision && p.phaseCharges > 0) {
         p.phaseCharges--;

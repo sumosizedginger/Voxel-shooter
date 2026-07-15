@@ -305,8 +305,9 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
       Parallax: 2–3 far layers at z ∈ [−10, −30] with `userData.scrollRate`
       0.2–0.6 (ASSETS_PLAN §7), beige-organic palette.
 - [x] `tests/stagelint.spec.mjs` (LEVELS_PLAN §7) + director spec.
-- [x] Authoring tools (LEVELS_PLAN §8): `?stage=&x=` URL params, `?god=1`,
-      **`G` key toggles god mode**, `?dev=1` / Ctrl×10 full dev mode,
+- [x] Authoring tools (LEVELS_PLAN §8): `?stage=&x=` URL params, `?god=1`
+      (**full immunity** via `world.godMode`), **`G` toggles god**, `?dev=1` /
+      Ctrl×10 full dev mode with **`[` / `]`** level step + Shift+1…0 jump,
       trigger timeline in the debug overlay.
 - **Done when:** Level 01 plays start → boss trigger with difficulty applied
   from `difficultyMultipliers()`, checkpoint rewind replays the right waves
@@ -495,3 +496,14 @@ Rows marked ⟶ were superseded by NARRATIVE_PLAN §2 when the story landed.
   (0x2b3040) lost — she was a silhouette-shaped hole. Hull is now a mid-dark
   grey-blue, and the kintsugi was cut back to one seam per side (it had covered
   ~40% of the hull, which made violet decorative and therefore meaningless, C7).
+- **Menu HUD gate + readability pass.** `#hud` is now hidden outside
+  PLAYING/PAUSED/DEATH/RESPAWN (TITLE/LOADOUT/OPTIONS no longer bleed score/
+  hull chrome through the overlay). Boss core/mouth emissives dialed out of the
+  bloom blowout band (same canopy lesson). `SHIP_VOXEL_SCALE` 0.10→0.125,
+  Witness shell/core dimmed and dock offsets pushed out, bullet meshes enlarged
+  so the Vessel reads as primary and fire remains legible against black void.
+- **Boss 02–10 body rewrite.** `bossBodies.js` maps rebuilt from bible
+  silhouettes (mirror parrot, 3-face jester, suit+desk+tie, shattered Vessel,
+  rayed sun+scar, forge+anvil+hammer, hollow drift cross, twin shadow ship,
+  broken seal ring). Scales retuned so denser maps still fit the arena;
+  presentation suite pins pairwise silhouette fingerprints.

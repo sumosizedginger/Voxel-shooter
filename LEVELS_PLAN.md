@@ -166,11 +166,13 @@ machine-checkable without a browser. Run it on every stage as it's authored.
 - Debug overlay (the backquote toggle from PLAN.md Phase 1) additionally
   shows: a trigger timeline strip (upcoming triggers with their atX),
   live enemy/bullet counts, and collision wireframes.
-- `?god=1` → invincible ship for tuning runs (visibly watermarked "GOD" in
-  the HUD so it can't be mistaken for a real run; scores not recorded).
-- **`G` key** toggles the same god mode at runtime (badge **GOD · score off**).
-- Full dev mode: **Ctrl ×10** or `?dev=1` (god + debug + skip cutscenes;
-  **Shift+1…0** warps levels). Profanity Key remains **`F`** only.
+- `?god=1` → **full immunity** for tuning runs (watermark **GOD · IMMUNE ·
+  score off**; scores not recorded). Hull never drops; contact/terrain/boss
+  wall cannot kill.
+- **`G` key** toggles the same god mode at runtime.
+- Full dev mode: **Ctrl ×10** or `?dev=1` (god + debug + skip cutscenes/tips;
+  **`[` / `]`** previous/next level; **Shift+1…0** jump to L1–L10).
+  Profanity Key remains **`F`** only.
 
 ## 9. PLAN.md phase mapping
 

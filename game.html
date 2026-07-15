@@ -23,6 +23,8 @@
             display: flex; flex-direction: column; justify-content: space-between;
             padding: 14px 18px;
         }
+        /* Menus/cutscenes: no gameplay chrome bleeding through the overlay. */
+        #hud.hidden { display: none; }
         #hudTop { display: flex; justify-content: space-between; align-items: flex-start; }
         #hudBottom { display: flex; justify-content: space-between; align-items: flex-end; }
         .panel {
@@ -226,8 +228,8 @@
     </div>
 
     <div id="debug"></div>
-    <div id="godBadge">GOD · score off</div>
-    <div id="devBadge">DEV MODE · god · debug · no score</div>
+    <div id="godBadge">GOD · IMMUNE · score off</div>
+    <div id="devBadge">DEV · [ ] level · Shift+1-0 · god · debug</div>
 
     <script type="module">
         import { boot } from './src/shmup/game.js';

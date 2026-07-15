@@ -66,11 +66,37 @@ export function run(t) {
     t.ok('all parallax builders export', Object.keys(PARALLAX_BUILDERS).length >= 10);
 
     // ── boss shapes (mirrors bosses/index.js shape fields)
+    // Each map must be dense enough to read as a boss, deterministic, and
+    // silhouettes must differ (pairwise size + bbox fingerprint).
+    const fingerprints = [];
     for (const [id, shape] of Object.entries(BOSS_SHAPES)) {
         t.ok(id + ' shape builder exists', typeof BOSS_BODY_BUILDERS[shape] === 'function', shape);
         const map = buildBossBody(shape, PAL);
-        t.ok(id + ' body map non-empty', map instanceof Map && map.size > 20, 'size=' + map.size);
+        t.ok(id + ' body map non-empty', map instanceof Map && map.size > 200, 'size=' + map.size);
+        const map2 = buildBossBody(shape, PAL);
+        let same = map.size === map2.size;
+        if (same) {
+            for (const [k, v] of map) {
+                if (map2.get(k) !== v) { same = false; break; }
+            }
+        }
+        t.ok(id + ' body map is deterministic', same);
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const k of map.keys()) {
+            const p = k.split(',');
+            const x = +p[0], y = +p[1];
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+        }
+        fingerprints.push({
+            id, shape, size: map.size,
+            w: maxX - minX + 1, h: maxY - minY + 1,
+            key: `${maxX - minX}:${maxY - minY}:${map.size}`
+        });
     }
+    const keys = new Set(fingerprints.map((f) => f.key));
+    t.ok('boss silhouettes are pairwise distinct', keys.size === fingerprints.length,
+        fingerprints.map((f) => f.id + '=' + f.key).join(' '));
     t.ok('default body builder exists', typeof BOSS_BODY_BUILDERS.default === 'function');
 
     // ── word textures

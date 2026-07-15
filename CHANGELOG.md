@@ -9,13 +9,30 @@ The kit becomes a game: a horizontal R-Type III–style shmup built under
 `src/shmup/` with **`index.html` / `game.html`** as the play entry (engine smoke
 at `kit.html`). Story canon from `docs/story-bible.html` via `NARRATIVE_PLAN.md`.
 
+### Readability + authoring polish
+- **Menu HUD gate** — `#hud` (score/lives/hull/arsenal) and boss/sys meters only
+  show in PLAYING/PAUSED/DEATH/RESPAWN; no chrome behind TITLE/LOADOUT/OPTIONS.
+- **Boss core/mouth bloom** — weakpoint emissives and sphere sizes dialed out of
+  the UnrealBloom blowout band (same lesson as the ship canopy).
+- **Vessel readability** — `SHIP_VOXEL_SCALE` 0.10→0.125 (~2.4u), brighter hull,
+  Witness shell/core dimmed and dock offsets pushed out so the ship reads as
+  primary; player/enemy bullet meshes enlarged for void contrast.
+- **Boss 02–10 body rewrite** — bible silhouettes (mirror parrot, 3-face jester,
+  suit+desk+tie, shattered Vessel, rayed sun+scar, forge+anvil, hollow drift
+  cross, twin shadow ship, broken seal ring); pairwise silhouette fingerprints
+  in `tests/presentation.spec.mjs`.
+- **God mode = immunity** — `world.godMode` hard-blocks `damagePlayer` /
+  `killPlayer`, collision/word side-effects, and tops up hull; score still off.
+- **Dev level skip** — with dev mode, **`[` / `]`** step previous/next level;
+  Shift+1…0 still jumps. Badges/docs updated.
+
 ### Presentation pass
 - Pre-mission **2-slot Council loadout** (persisted) between title and launch.
 - In-game **OPTIONS** (volumes, reduce motion/flash/horror audio, key rebind).
 - L02–L10 **parallax** silhouettes, terrain dressing, and per-level sky tints.
-- **Bespoke boss body shapes** for bosses 02–10.
+- **Bespoke boss body shapes** for bosses 02–10 (later rewritten for bible fidelity).
 - Cutscene **voxel dioramas** (GUMOI bust + stage prop); `reduceMotion` skips them.
-- **Word-bullet sprites** via `makeWordTexture`; expanded SFX + 32-step music.
+- **Word-bullet sprites** via `makeWordTexture`; expanded SFX + 48-step music.
 - Accessibility: `reduceMotion` suppresses camera shake.
 - README leads with the game; kit smoke relocated to `kit.html`.
 
@@ -57,8 +74,9 @@ at `kit.html`). Story canon from `docs/story-bible.html` via `NARRATIVE_PLAN.md`
   per-level wave scripts + `systems` bags; boss hard-fail/timeout/temporal
   hooks; ten music tracks; cast tags + system meter HUD; `tests/systems.spec.mjs`;
   [COMPLETION.md](COMPLETION.md).
-- **Authoring keys** — **`G`** toggles god mode (badge + score off); **Ctrl×10**
-  full dev mode; Profanity Key is **`F`** only (G freed for god).
+- **Authoring keys** — **`G`** toggles god mode (**full immunity** + score off);
+  **Ctrl×10** / `?dev=1` full dev mode; **`[` / `]`** level step; Shift+1…0 jump;
+  Profanity Key is **`F`** only (G freed for god).
 - New pure-node specs: `ship`, `assets`, `bullets`, `terrain`, `arsenal`,
   `director`, `stagelint`, `comms`, `campaign`, `systems` (all import-clean,
   browser-free).

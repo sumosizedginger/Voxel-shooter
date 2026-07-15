@@ -78,9 +78,10 @@ export function run(t) {
     t.ok('the seam color IS the reserved violet (C7)', SHIP_PALETTE.seam === VIOLET);
 
     // ── the hit radius (0.15) must live inside the fuselage, never the wings:
-    //    the visible ship is ~1.9u long but only its core kills you.
+    //    the visible ship is ~2.4u long but only its core kills you.
     const halfLen = ((maxX - minX + 1) / 2) * SHIP_VOXEL_SCALE;
-    t.ok('ship is ~1.9 world units long', Math.abs(halfLen * 2 - 1.9) < 0.05,
+    // SHIP_VOXEL_SCALE 0.125 → ~2.375u long (readability pass vs Witness).
+    t.ok('ship is ~2.4 world units long', Math.abs(halfLen * 2 - 2.375) < 0.05,
         'length=' + (halfLen * 2).toFixed(2) + 'u');
     // The hit circle (r = 0.15u = 1.5 voxels) is centered on SHIP_HIT_CENTER.
     // Every voxel it touches must be solid hull — if any is empty, the player

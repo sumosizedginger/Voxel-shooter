@@ -11,16 +11,18 @@ import {
 } from './generic.js';
 import { BOSS_BALANCE } from '../balance.js';
 
+// Shell = high-contrast accent (beak plates / tie / scar / molten / seal teeth).
+// Body / bodyDark = mass. Keep each boss's shell family distinct from the next.
 const P = {
-    parrot: { body: 0x6a7482, bodyDark: 0x3e4652, shell: 0xc0cad8, spark: 0xd0e0f0 },
-    jester: { body: 0x6e3358, bodyDark: 0x3a1a30, shell: 0xe070c0, spark: 0xff80d0 },
-    suit: { body: 0x8a8478, bodyDark: 0x54504a, shell: 0xd8d0c0, spark: 0xfff0c0 },
-    mirror: { body: 0x5a7088, bodyDark: 0x30404e, shell: 0xd0e4f4, spark: 0xd0f0ff },
-    sun: { body: 0xf0c0d8, bodyDark: 0xd89ab8, shell: 0xffe0f0, spark: 0xffffff },
-    forge: { body: 0x8a3e1e, bodyDark: 0x401810, shell: 0xffa860, spark: 0xffb060 },
-    drift: { body: 0x9a9aa0, bodyDark: 0x66666c, shell: 0xeeeef2, spark: 0xffffff },
-    shadow: { body: 0x453a5e, bodyDark: 0x241d34, shell: 0x9a86c8, spark: 0xc0a0ff },
-    seal: { body: 0x5a4e8e, bodyDark: 0x2c2450, shell: 0xc0b0ff, spark: 0xd0c0ff }
+    parrot: { body: 0x5c6a7c, bodyDark: 0x2e3848, shell: 0xd8e4f0, spark: 0xe8f0ff },
+    jester: { body: 0x7a2e5c, bodyDark: 0x3a1428, shell: 0xff6ad4, spark: 0xff90e0 },
+    suit: { body: 0x8e887c, bodyDark: 0x4a4640, shell: 0xf0e6c8, spark: 0xfff4d0 },
+    mirror: { body: 0x4a6078, bodyDark: 0x243040, shell: 0xe0f4ff, spark: 0xf0ffff },
+    sun: { body: 0xf2b8d0, bodyDark: 0xc07098, shell: 0xfff0f8, spark: 0xffffff },
+    forge: { body: 0x6a3018, bodyDark: 0x2a1008, shell: 0xffa040, spark: 0xffc060 },
+    drift: { body: 0x8a8a92, bodyDark: 0x4a4a52, shell: 0xf4f4f8, spark: 0xffffff },
+    shadow: { body: 0x3a3050, bodyDark: 0x181424, shell: 0xa890e0, spark: 0xc8b0ff },
+    seal: { body: 0x4a3e7a, bodyDark: 0x201838, shell: 0xd0c0ff, spark: 0xe8e0ff }
 };
 
 const threePhase = (fires, gates = [0.6, 0.25]) => [
@@ -34,7 +36,7 @@ const B = BOSS_BALANCE;
 export const BOSS_CONFIGS = {
     // L2 Induction Parrot — copies what you fire (S5). Motion: weave. Telegraph: shell flash.
     boss02: {
-        id: 'boss02', name: 'THE INDUCTION PARROT', hp: B.boss02.hp, scale: 0.22, standoff: 13, score: 9000,
+        id: 'boss02', name: 'THE INDUCTION PARROT', hp: B.boss02.hp, scale: 0.20, standoff: 13, score: 9000,
         shape: 'parrot',
         palette: P.parrot, remembersShots: true, cores: [{ dx: -1.4, dy: 0, r: 0.7 }],
         motion: 'weave', telegraph: 'shell',
@@ -46,7 +48,7 @@ export const BOSS_CONFIGS = {
     },
     // L3 Jester — S6 modifiers + 90s hard-fail integrate (C8/C10).
     boss03: {
-        id: 'boss03', name: 'THE JESTER UNBOUND', hp: B.boss03.hp, scale: 0.22, standoff: 13, score: 9500,
+        id: 'boss03', name: 'THE JESTER UNBOUND', hp: B.boss03.hp, scale: 0.19, standoff: 13, score: 9500,
         shape: 'jester',
         palette: P.jester, cores: [{ dx: -1.2, dy: 0, r: 0.8 }],
         hardFailAt: B.boss03.hardFailAt,
@@ -69,7 +71,7 @@ export const BOSS_CONFIGS = {
     },
     // L4 Smooth Operator — word bullets + profanity (S7).
     boss04: {
-        id: 'boss04', name: 'THE SMOOTH OPERATOR', hp: B.boss04.hp, scale: 0.24, standoff: 13, score: 9500,
+        id: 'boss04', name: 'THE SMOOTH OPERATOR', hp: B.boss04.hp, scale: 0.20, standoff: 13, score: 9500,
         shape: 'suit',
         palette: P.suit, cores: [{ dx: -0.9, dy: -0.4, r: 0.6 }],
         motion: 'bob', telegraph: 'word',
@@ -81,7 +83,7 @@ export const BOSS_CONFIGS = {
     },
     // L5 Mirror Break — delayed mirror of your shots (S8).
     boss05: {
-        id: 'boss05', name: 'THE MIRROR BREAK', hp: B.boss05.hp, scale: 0.22, standoff: 12, score: 10000,
+        id: 'boss05', name: 'THE MIRROR BREAK', hp: B.boss05.hp, scale: 0.20, standoff: 12, score: 10000,
         shape: 'mirror',
         palette: P.mirror, remembersShots: true, cores: [{ dx: -1.2, dy: 0, r: 0.7 }],
         shadowDelay: 0.3,
@@ -94,7 +96,7 @@ export const BOSS_CONFIGS = {
     },
     // L6 Redemption Arc — sun does NOT attack; cast-gated scar.
     boss06: {
-        id: 'boss06', name: 'THE REDEMPTION ARC', hp: B.boss06.hp, scale: 0.26, standoff: 13, score: 10000,
+        id: 'boss06', name: 'THE REDEMPTION ARC', hp: B.boss06.hp, scale: 0.18, standoff: 13, score: 10000,
         shape: 'sun',
         palette: P.sun, coreAlwaysOpen: false, castCycle: 3.0, castOpen: B.boss06.castOpen,
         cores: [{ dx: -1.0, dy: 0, r: 0.55 }],
@@ -110,7 +112,7 @@ export const BOSS_CONFIGS = {
     },
     // L7 Forge Wraith — S9 predict + heat.
     boss07: {
-        id: 'boss07', name: 'THE FORGE WRAITH', hp: B.boss07.hp, scale: 0.24, standoff: 13, score: 10500,
+        id: 'boss07', name: 'THE FORGE WRAITH', hp: B.boss07.hp, scale: 0.19, standoff: 13, score: 10500,
         shape: 'forge',
         palette: P.forge, cores: [{ dx: -1.0, dy: -0.6, r: 0.7 }],
         motion: 'lunge', telegraph: 'aim',
@@ -122,7 +124,7 @@ export const BOSS_CONFIGS = {
     },
     // L8 Drift Wraith — symmetric fire; asymmetry scorer.
     boss08: {
-        id: 'boss08', name: 'THE DRIFT WRAITH', hp: B.boss08.hp, scale: 0.24, standoff: 13, score: 11000,
+        id: 'boss08', name: 'THE DRIFT WRAITH', hp: B.boss08.hp, scale: 0.18, standoff: 13, score: 11000,
         shape: 'drift',
         palette: P.drift, cores: [{ dx: -1.0, dy: 0, r: 0.7 }],
         asymmetryRegen: true,
@@ -135,7 +137,7 @@ export const BOSS_CONFIGS = {
     },
     // L9 Witness's Shadow — S8 extended.
     boss09: {
-        id: 'boss09', name: "THE WITNESS'S SHADOW", hp: B.boss09.hp, scale: 0.22, standoff: 12, score: 12000,
+        id: 'boss09', name: "THE WITNESS'S SHADOW", hp: B.boss09.hp, scale: 0.20, standoff: 12, score: 12000,
         shape: 'shadow',
         palette: P.shadow, remembersShots: true, cores: [{ dx: -1.2, dy: 0, r: 0.6 }],
         shadowDelay: 0.5,
@@ -148,7 +150,7 @@ export const BOSS_CONFIGS = {
     },
     // L10 Corrupted Seal — √π / ∞ / τ² with temporal loop in phase 3.
     boss10: {
-        id: 'boss10', name: 'THE CORRUPTED SEAL', hp: B.boss10.hp, scale: 0.28, standoff: 14, score: 20000,
+        id: 'boss10', name: 'THE CORRUPTED SEAL', hp: B.boss10.hp, scale: 0.20, standoff: 14, score: 20000,
         shape: 'seal',
         palette: P.seal, cores: [{ dx: -1.0, dy: 0, r: 0.7 }],
         isFinale: true,

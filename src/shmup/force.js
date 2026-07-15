@@ -38,15 +38,17 @@ export const STATE = {
     RETURNING: 'returning'    // flying back to the Vessel
 };
 
-/** Dock offsets in world units, relative to the Vessel's hit center. */
+/** Dock offsets in world units, relative to the Vessel's hit center.
+ *  Tuned for SHIP_VOXEL_SCALE 0.125 (~2.4u long) so the pod sits clear of the
+ *  hull silhouette instead of merging into one blob. */
 const DOCK_OFFSET = {
-    [DOCK.FRONT]: [1.15, 0],
-    [DOCK.REAR]: [-1.15, 0],
-    [DOCK.ABOVE]: [0, 0.85],
-    [DOCK.BELOW]: [0, -0.85]
+    [DOCK.FRONT]: [1.55, 0],
+    [DOCK.REAR]: [-1.55, 0],
+    [DOCK.ABOVE]: [0, 1.05],
+    [DOCK.BELOW]: [0, -1.05]
 };
 
-export const WITNESS_R = 0.42;         // hit radius — generous: it's a shield
+export const WITNESS_R = 0.38;         // hit radius — generous: it's a shield
 const LAUNCH_SPEED = 20;
 const LAUNCH_TIME = 0.45;
 const RETURN_SPEED = 26;

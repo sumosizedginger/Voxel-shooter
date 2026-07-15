@@ -184,12 +184,22 @@ function setState(next) {
     renderOverlay();
 }
 
+/** Gameplay HUD is only for mid-run states — never behind title/loadout/options. */
+const HUD_PLAY_STATES = new Set([
+    STATE.PLAYING, STATE.PAUSED, STATE.DEATH, STATE.RESPAWN
+]);
+
 function applyHudA11y() {
     try {
         const root = document.getElementById('hud') || (dom && dom.hud);
         if (!root) return;
         if (getSetting('largerHud')) root.classList.add('large');
         else root.classList.remove('large');
+        // Hide score/lives/hull/arsenal on every menu and cutscene so they
+        // don't float through the centered overlay at full opacity.
+        const show = HUD_PLAY_STATES.has(state);
+        root.classList.toggle('hidden', !show);
+        root.setAttribute('aria-hidden', show ? 'false' : 'true');
     } catch (e) { /* headless */ }
 }
 
@@ -347,6 +357,9 @@ function resolveCollisions(dt) {
     }
 
     if (!p.alive) return;
+
+    // God mode: full immunity — no chip, no contact death, no word side-effects.
+    if (godMode || world.godMode) return;
 
     // enemy shots -> the Vessel (CHIP damage, C2)
     const hit = firstHit(world.enemyBullets, p.x, p.y, p.r);
@@ -579,10 +592,10 @@ function renderHud() {
         dom.pickupFlash.style.opacity = Math.min(1, pickupFlashT);
     }
 
-    // ── boss HP bar — visible only while the wall lives
+    // ── boss HP bar — mid-run only (same gate as #hud; no chrome on menus)
     if (dom.bossWrap) {
         const b = world.boss;
-        const show = b && !b.dead;
+        const show = HUD_PLAY_STATES.has(state) && b && !b.dead;
         dom.bossWrap.style.display = show ? 'block' : 'none';
         if (show) {
             dom.bossBar.style.width = Math.max(0, b.hp / b.maxHp * 100) + '%';
@@ -598,17 +611,21 @@ function renderHud() {
 
     // System meters (heat / asymmetry / profanity CD)
     if (dom.sysMeter) {
-        const sys = world.level && world.level.systems;
-        let text = '';
-        if (sys && sys.heat && heat) {
-            text = heatWeaponsOffline(heat) ? 'HEAT OFFLINE' : ('HEAT ' + Math.round(heatFraction(heat) * 100));
-        } else if (sys && sys.asymmetry && asymmetry) {
-            text = 'ASYM ' + Math.round(asymmetry.score * 100);
-        } else if (sys && sys.profanity && profanity) {
-            text = profanity.cd > 0 ? ('PROF ' + profanity.cd.toFixed(1) + 's') : 'PROF READY (F)';
+        if (!HUD_PLAY_STATES.has(state)) {
+            dom.sysMeter.style.display = 'none';
+        } else {
+            const sys = world.level && world.level.systems;
+            let text = '';
+            if (sys && sys.heat && heat) {
+                text = heatWeaponsOffline(heat) ? 'HEAT OFFLINE' : ('HEAT ' + Math.round(heatFraction(heat) * 100));
+            } else if (sys && sys.asymmetry && asymmetry) {
+                text = 'ASYM ' + Math.round(asymmetry.score * 100);
+            } else if (sys && sys.profanity && profanity) {
+                text = profanity.cd > 0 ? ('PROF ' + profanity.cd.toFixed(1) + 's') : 'PROF READY (F)';
+            }
+            dom.sysMeter.textContent = text;
+            dom.sysMeter.style.display = text ? 'block' : 'none';
         }
-        dom.sysMeter.textContent = text;
-        dom.sysMeter.style.display = text ? 'block' : 'none';
     }
 }
 
@@ -645,8 +662,8 @@ function renderDebug() {
         'witness  L' + (world.witness ? world.witness.level : 0)
         + ' ' + (world.witness ? world.witness.state : '') + '\n' +
         'fps      ' + fps.toFixed(0) + '   draws ' + lastDrawCalls + '\n' +
-        (godMode ? '*** GOD MODE — score not recorded ***\n' : '') +
-        (devMode ? '*** DEV MODE (Ctrl×10 toggles) · Shift+1..0 = level jump ***\n' : '') +
+        (godMode ? '*** GOD MODE — IMMUNE · score not recorded ***\n' : '') +
+        (devMode ? '*** DEV · [ ] level · Shift+1..0 jump · Ctrl×10 off ***\n' : '') +
         'next     ' + (runner ? levelTimeline(runner, 4)
             .map((tr) => tr.type + '@' + tr.atX).join('  ') : '');
 }
@@ -920,7 +937,7 @@ function tickPlaying(dt) {
         if (snap && shadowMesh) {
             shadowMesh.visible = true;
             shadowMesh.position.set(snap.x, snap.y, 0.1);
-            if (player.alive && player.invuln <= 0
+            if (!godMode && player.alive && player.invuln <= 0
                 && circleHit(player.x, player.y, player.r, snap.x, snap.y, 0.45)) {
                 damagePlayer(player, 3, world);
             }
@@ -934,7 +951,16 @@ function tickPlaying(dt) {
     player.weaponsOffline = heatWeaponsOffline(heat) || (player._wordLockT > 0);
 
     tickLevelRunner(runner, dt, scrollX);
-    if (godMode) player.invuln = Math.max(player.invuln, 0.1);
+    // God = immunity (no blink): keep hull full and clear crowd-control so
+    // testing stays clean. Damage/kill paths consult world.godMode.
+    if (godMode && player) {
+        player.invuln = 0;
+        player.hull = player.maxHull;
+        player.slowStacks = [];
+        player.speedScale = 1;
+        player.weaponsOffline = false;
+        player._wordLockT = 0;
+    }
     updatePlayer(player, dt, playInput, world);
 
     // S6 screenPush
@@ -1462,6 +1488,12 @@ export function boot(domRefs) {
 
         // Dev-only cheats (only while the badge is on)
         if (devMode) {
+            // [ / ] → previous / next level (hold for rapid testing)
+            if (e.code === 'BracketRight' || e.code === 'BracketLeft') {
+                e.preventDefault();
+                devSkipLevel(e.code === 'BracketRight' ? 1 : -1);
+                return;
+            }
             // Shift+1..0 → jump to level 1..10 and restart the run
             if (e.shiftKey && e.code.startsWith('Digit')) {
                 const n = e.code === 'Digit0' ? 10 : Number(e.code.slice(5));
@@ -1479,11 +1511,13 @@ export function boot(domRefs) {
     const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
     startAtX = Math.max(0, Number(params.get('x')) || 0);
     godMode = params.get('god') === '1';
+    world.godMode = godMode;
     skipCutscenes = params.get('skipcs') === '1' || params.has('x');
     // Smoke + authoring: skipcs also skips tips so TITLE→LOADOUT→PLAYING stays one path.
     skipTips = params.get('skiptips') === '1' || skipCutscenes || params.get('dev') === '1';
     if (params.has('debug')) debugOn = true;
     if (params.get('dev') === '1') setDevMode(true);
+    world.godMode = godMode; // setDevMode may have forced god on
     if (godMode && dom.godBadge) dom.godBadge.classList.add('on');
 
     // Boss signature callbacks
@@ -1543,38 +1577,41 @@ function noteCtrlTap() {
     }
 }
 
-/** Toggle invincibility (KeyG). Scores are not recorded while god is on. */
+/** Toggle invincibility (KeyG). Full immunity; scores are not recorded. */
 export function toggleGodMode() {
     setGodMode(!godMode);
 }
 
 export function setGodMode(on) {
     godMode = !!on;
+    world.godMode = godMode;
     if (dom.godBadge) dom.godBadge.classList.toggle('on', godMode);
-    if (world.flashPickup) world.flashPickup(godMode ? 'GOD ON' : 'GOD OFF');
+    if (world.flashPickup) world.flashPickup(godMode ? 'GOD ON · IMMUNE' : 'GOD OFF');
     if (godMode) sfx.uiConfirm(); else sfx.uiMove();
 }
 
 /**
  * Toggle the secret dev/authoring mode.
- * On: god mode, debug overlay, skip cutscenes, score suppressed, level warp.
+ * On: god (immune), debug, skip cutscenes, score suppressed, [ ] / Shift+1..0 level warp.
  * Off: restore non-URL authoring defaults (URL ?god=1 still wins until reload).
  */
 export function setDevMode(on) {
     devMode = !!on;
     if (devMode) {
         godMode = true;
+        world.godMode = true;
         debugOn = true;
         skipCutscenes = true;
         skipTips = true;
         if (dom.devBadge) dom.devBadge.classList.add('on');
         if (dom.godBadge) dom.godBadge.classList.add('on');
-        if (world.flashPickup) world.flashPickup('DEV MODE');
+        if (world.flashPickup) world.flashPickup('DEV · [ ] LEVELS');
         sfx.uiConfirm();
     } else {
         // Leave URL-forced flags alone if the page was loaded with ?god= / ?debug
         const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
         godMode = params.get('god') === '1';
+        world.godMode = godMode;
         debugOn = params.has('debug');
         skipCutscenes = params.get('skipcs') === '1' || params.has('x');
         skipTips = params.get('skiptips') === '1' || skipCutscenes;
@@ -1583,6 +1620,16 @@ export function setDevMode(on) {
         if (world.flashPickup) world.flashPickup('DEV OFF');
         sfx.uiMove();
     }
+}
+
+/** Dev: step ±1 level (clamped 1..LAST). Restarts that stage; score carries. */
+function devSkipLevel(dir) {
+    const n = Math.max(1, Math.min(LAST_LEVEL, currentLevelId + (dir | 0)));
+    keepScore = true;
+    startRun(0, n);
+    const tag = 'L' + (n < 10 ? '0' : '') + n;
+    if (world.flashPickup) world.flashPickup(tag + (dir > 0 ? ' →' : ' ←'));
+    sfx.uiConfirm();
 }
 
 let comms = createComms();

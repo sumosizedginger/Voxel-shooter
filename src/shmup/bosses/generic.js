@@ -74,10 +74,15 @@ export function createGenericBoss(scene, world, cfg) {
         telegraph: cfg.telegraph || 'shell'
     };
 
+    // Core = readable weakpoint mark, not a bloom searchlight. Same lesson as
+    // the ship canopy (PLAN.md §6): emissiveIntensity ≳ 2 on a ~0.35 sphere
+    // blows out to a white blob and erases boss geometry.
     const coreLayout = cfg.cores || [{ dx: -1.2, dy: 0, r: 0.8 }];
-    const coreGeo = new THREE.SphereGeometry(0.36, 14, 12);
+    const coreGeo = new THREE.SphereGeometry(0.22, 14, 12);
     for (const c of coreLayout) {
-        const mat = new THREE.MeshStandardMaterial({ color: 0x0a0510, emissive: VIOLET, emissiveIntensity: 2.4 });
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0x1a0a30, emissive: VIOLET, emissiveIntensity: 0.85
+        });
         const mesh = new THREE.Mesh(coreGeo, mat);
         group.add(mesh);
         const core = {
@@ -500,7 +505,15 @@ function updateCoreMeshes(boss, dt) {
         if (core.mesh) {
             core.mesh.position.set(core.x, core.y, 0);
             core.mesh.visible = core.open;
-            core.mat.emissiveIntensity = core.open ? (2.2 + Math.sin(boss._t * 6) * 0.6) : 0.2;
+            // Open = visible violet target; weakpoint window pulses a notch
+            // brighter — never into the bloom blowout band.
+            if (!core.open) {
+                core.mat.emissiveIntensity = 0.15;
+            } else if (core.weakpointT > 0) {
+                core.mat.emissiveIntensity = 1.25 + Math.sin(boss._t * 8) * 0.2;
+            } else {
+                core.mat.emissiveIntensity = 0.75 + Math.sin(boss._t * 4) * 0.15;
+            }
         }
         if (core.weakpointT > 0) core.weakpointT = Math.max(0, core.weakpointT - dt);
     }

@@ -143,10 +143,12 @@ export function createBoss01(scene, world) {
         mesh.scale.setScalar(WALL_SCALE);
         group.add(mesh);
 
-        // The violet weakpoint glow — the mouth that just lied. Dark until lit.
+        // Violet weakpoint mark — the mouth that just lied. Dark until lit.
+        // Keep the sphere small and the emissive modest so UnrealBloom doesn't
+        // erase the mouth geometry (same failure mode as the ship canopy).
         const glow = new THREE.Mesh(
-            new THREE.SphereGeometry(0.32, 12, 10),
-            new THREE.MeshStandardMaterial({ color: 0x0a0510, emissive: VIOLET, emissiveIntensity: 0 })
+            new THREE.SphereGeometry(0.20, 12, 10),
+            new THREE.MeshStandardMaterial({ color: 0x1a0a30, emissive: VIOLET, emissiveIntensity: 0 })
         );
         mesh.add(glow);
 
@@ -188,12 +190,13 @@ function driveMouths(boss, dt, world, rate) {
 
         if (mouth.weakpointT > 0) {
             mouth.weakpointT -= dt;
-            mouth.glow.emissiveIntensity = 2.6 + Math.sin(boss._t * 12) * 0.6;
+            // Readable "shoot here" pulse — not a white-out bloom ball.
+            mouth.glow.emissiveIntensity = 1.15 + Math.sin(boss._t * 10) * 0.2;
             if (mouth.weakpointT <= 0) { mouth.state = 'idle'; mouth.timer = boss.announceEvery; }
             continue;
         }
         mouth.glow.emissiveIntensity = mouth.state === 'announcing'
-            ? 0.4 + Math.sin(boss._t * 8) * 0.3          // a warning flicker
+            ? 0.35 + Math.sin(boss._t * 8) * 0.2          // a warning flicker
             : 0;
 
         mouth.timer -= dt * rate;

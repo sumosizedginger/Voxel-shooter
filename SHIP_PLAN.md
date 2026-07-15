@@ -36,12 +36,13 @@ background, with a visibly glowing engine and canopy.
 - **C3 — Orientation.** Author the ship in voxel space with the **nose along
   +X, up along +Y, width along Z**, matching the gameplay convention (PLAN.md
   §2.1). No baked rotation on the mesh; the camera sees the XY side profile.
-- **C4 — Scale.** Export `SHIP_VOXEL_SCALE = 0.1` (world units per voxel) from
-  the ship module and use `mesh.scale.setScalar(SHIP_VOXEL_SCALE)`. (The kit's
+- **C4 — Scale.** Export `SHIP_VOXEL_SCALE` (world units per voxel) from the
+  ship module and use `mesh.scale.setScalar(SHIP_VOXEL_SCALE)`. (The kit's
   `palette.js` `S = 0.09` is the *character* invariant — don't reuse it; the
-  ship defines its own.) Target visible size: **~1.9 × 0.6 world units**
-  (length × height), i.e. ~19 × 6 voxels. Keep width ≤ 7 voxels so the thin
-  profile doesn't smear under the perspective camera near screen top/bottom.
+  ship defines its own.) **Shipped value: `0.125`** (~**2.4 × 0.75** world units
+  at 19×6 voxels) so the Vessel reads as primary next to the docked Witness;
+  hit radius stays **0.15**. Keep width ≤ 7 voxels so the thin profile doesn't
+  smear under the perspective camera near screen top/bottom.
 - **C5 — `paint()` only recolors existing voxels** — it can't add any. Fill
   shapes first, decorate after. `shadeHex(hex, f)` from `voxel/helpers.js` is
   the shading tool; `hash3` (voxel/core.js) for stable speckle, never
@@ -166,7 +167,7 @@ named constants at the top of shipRig.js — they'll be tuned.
 
 ## 7. Acceptance criteria
 
-- [ ] Ship renders in `game.html` at ~1.9 world units long, correct
+- [x] Ship renders in `game.html` at ~2.4 world units long, correct
       orientation (nose +X), centered on its gameplay position.
 - [ ] Debug overlay's hit-radius circle (r 0.15) falls entirely inside the
       fuselage core voxels — never inside wings/fin (those are cosmetic and

@@ -15,8 +15,10 @@
 import { fillBox, fillEllipsoid, paint, shadeHex } from '../../voxel/helpers.js';
 import { SHIP_PALETTE } from '../palette.js';
 
-/** World units per voxel (SHIP_PLAN C4 — the ship owns its own scale). */
-export const SHIP_VOXEL_SCALE = 0.1;
+/** World units per voxel (SHIP_PLAN C4 — the ship owns its own scale).
+ *  Bumped 0.10 → 0.125 so the Vessel reads as the primary silhouette next to
+ *  the docked Witness at gameplay zoom (~2.4u long, hit radius stays 0.15). */
+export const SHIP_VOXEL_SCALE = 0.125;
 
 /** Voxel extents, inclusive. The spec asserts the map fits exactly in these. */
 export const SHIP_DIMS = { length: 19, height: 7, width: 13 };

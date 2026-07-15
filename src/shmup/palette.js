@@ -23,15 +23,17 @@ export const VIOLET_DEEP = 0x6d3fd6;
 // grey-blue machine rather than a white knight, but a clear step above the
 // backdrop so the shape survives at gameplay size.
 export const SHIP_PALETTE = {
-    hull: 0x7d88a6,        // graphite-blue — dark in spirit, but it has to be SEEN
-    hullDark: 0x4d5674,    // belly / shaded panels
-    hullLight: 0xa3adc6,   // top-lit panels, canopy surround
+    // One more step up in value so the Vessel silhouette separates cleanly
+    // from black void + the smaller violet Witness docked beside it.
+    hull: 0x8e9ab8,        // graphite-blue — dark in spirit, but it has to be SEEN
+    hullDark: 0x55607e,    // belly / shaded panels
+    hullLight: 0xb4bdd4,   // top-lit panels, canopy surround
     panel: 0x252b3c,       // panel lines / intake trim
     seam: VIOLET,          // painted kintsugi crack-lines (voxel color)
     seamDeep: 0x4060ff,    // the blue half of the seam family
-    accent: 0xf97316,      // copper — wing edges, nose ring, fin tip
+    accent: 0xff8a2b,      // copper — wing edges, nose ring, fin tip (hotter tip)
     canopy: 0x101526,      // dark voxels UNDER the canopy glow mesh
-    engineTint: 0xf9a06a,  // warm tint on tail voxels around the exhaust
+    engineTint: 0xffb070,  // warm tint on tail voxels around the exhaust
     // Glow meshes (separate emissive materials — voxel colors never bloom, C1):
     canopyGlow: 0x7fd8ff,  // cyan-violet cockpit
     engineGlow: 0xff9a40,  // copper-orange exhaust

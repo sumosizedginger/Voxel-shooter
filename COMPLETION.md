@@ -11,7 +11,7 @@ campaign-complete MVP and the later **presentation pass**. Authority order:
 |------|--------------------|-------------------------|
 | Pre-mission loadout | Default Prophet+Needle only | **2-slot Council UI** + persist |
 | L02–L10 feel | Wave scripts + shared tunnel | Terrain decor + **parallax** + sky |
-| Boss spectacle | One generic body + phases | **Bespoke shapes** per boss 02–10 |
+| Boss spectacle | One generic body + phases | **Bible silhouettes** per boss 02–10 |
 | Cutscenes | Cine camera + lines | **GUMOI bust + stage diorama** |
 | Word bullets | Effect table + plain boxes | **CanvasTexture sprites** |
 | Music | 16-step theme loops | **48-step A/B/C phrases** + chime |
@@ -30,11 +30,11 @@ campaign-complete MVP and the later **presentation pass**. Authority order:
 | `src/shmup/council.js` | Import-clean Council seat table |
 | `src/shmup/level/stagecraft.js` | Terrain dressing, sky, parallax hooks |
 | `src/shmup/assets/parallax.js` | Per-theme silhouette builders |
-| `src/shmup/assets/bossBodies.js` | Boss 02–10 voxel shapes |
+| `src/shmup/assets/bossBodies.js` | Boss 02–10 bible voxel silhouettes |
 | `src/shmup/assets/props.js` | GUMOI bust map (THREE-free) |
 | `src/shmup/assets/diorama.js` | Cutscene prop spawn/dispose |
-| `src/shmup/bulletmesh.js` | Word sprite pool via `makeWordTexture` |
-| `tests/presentation.spec.mjs` | Loadout / parallax / shapes / music / diorama |
+| `src/shmup/bulletmesh.js` | Word sprites + readable bolt/orb sizes |
+| `tests/presentation.spec.mjs` | Loadout / parallax / silhouette fingerprints / music / diorama |
 
 ## UI flow
 
@@ -77,6 +77,17 @@ Loadout persists under `progress.rtype.loadout` (and `progress.loadout`).
 - Onboarding tips (`systems/onboarding.js`); `?skiptips=1` / skipcs skips for smoke
 - Tests: `tests/shipquality.spec.mjs`
 
+## Readability + authoring pass
+
+- **HUD gate** — gameplay chrome only mid-run (`#hud.hidden` + boss/sys meters).
+- **Bloom** — boss cores/mouths use modest emissive so weakpoints stay readable.
+- **Vessel vs Witness** — ship scale 0.125, hull value up, Witness smaller/dimmer,
+  dock offsets out; bullets chunkier against the void.
+- **Boss 02–10** — full silhouette rewrite in `bossBodies.js` (parrot/jester/suit/
+  mirror/sun/forge/drift/shadow/seal); scales retuned in `bosses/index.js`.
+- **God = immunity** — `world.godMode` blocks all damage/death paths; hull full.
+- **Dev** — `[` / `]` previous/next level; Shift+1…0 still jumps; `?dev=1` / Ctrl×10.
+
 ## Optional still deferred
 
 - Full professional soundtrack / recorded SFX banks (synth kit remains).
@@ -88,9 +99,11 @@ Loadout persists under `progress.rtype.loadout` (and `progress.loadout`).
 npm run serve
 # http://localhost:8799/          (game)
 # http://localhost:8799/kit.html  (engine smoke)
-# http://localhost:8799/?god=1&skipcs=1&x=300
+# http://localhost:8799/?dev=1&skipcs=1
 # Title → LAUNCH → pick Scribe+Cloak → fire
 # Options: volumes, reduce motion, rebind
 # Level 4: F cancels word sprites
-# G: god mode · Ctrl×10: dev mode
+# G: god = full immunity · Ctrl×10 / ?dev=1: dev mode
+# Dev: ] next level · [ previous · Shift+1..0 jump
+# Boss peek: ?god=1&skipcs=1&x=280
 ```

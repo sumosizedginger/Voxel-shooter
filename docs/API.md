@@ -322,13 +322,17 @@ systems: {
 
 | Action | Default | Notes |
 |---|---|---|
-| God mode | `G` (`input.god` / `KeyG`) | Toggle invincibility; score not recorded; `setGodMode` / `toggleGodMode` on `window.__gumoi`. Badge `#godBadge`. |
+| God mode | `G` (`input.god` / `KeyG`) | **Full immunity** (`world.godMode`): no chip, contact, terrain, or boss-wall death; hull held full; score not recorded. `setGodMode` / `toggleGodMode` / `isGodMode` on `window.__gumoi`. Badge `#godBadge`. |
 | Profanity Key | `F` | Cancels nearest `onlyProfanity` word-bullet (1.2 s CD). Witness will **not** absorb those. |
 | Debug overlay | `` ` `` (Backquote) | Collision wires + timeline |
 | Skip cutscene | Fire / Enter | After 0.35 s grace in `CUTSCENE` state |
-| Dev mode | Ctrl ×10 or `?dev=1` | God + debug + skip cutscenes; Shift+1…0 level warp |
-| Author URL | `?god=1`, `?skipcs=1`, `?x=` | See README |
+| Dev mode | Ctrl ×10 or `?dev=1` | God (immune) + debug + skip cutscenes/tips. **`[` / `]`** previous/next level; **Shift+1…0** jump to L1–L10. `setDevMode` / `isDevMode` on `window.__gumoi`. Badge `#devBadge`. |
+| Author URL | `?god=1`, `?dev=1`, `?skipcs=1`, `?skiptips=1`, `?x=` | See README |
 
 `input.js` bindings include `god: ['KeyG']` and `profanity: ['KeyF']` (gamepad:
-button 10 / 6 respectively).
+button 10 / 6 respectively). Level skip keys are hard-coded in `game.js` while
+`devMode` is on (not rebindable).
+
+Gameplay HUD (`#hud`) is visible only in PLAYING / PAUSED / DEATH / RESPAWN.
+Boss bar and system meter use the same gate.
 

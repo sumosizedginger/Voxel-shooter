@@ -17,7 +17,9 @@ import { hash3 } from '../../voxel/core.js';
 import { buildVoxelGeo } from '../../voxel/core.js';
 import { SHIP_PALETTE, VIOLET, PICKUP_PALETTE } from '../palette.js';
 
-export const WITNESS_SCALE = 0.09;
+// Escort-sized: must read as the docked pod, not as a second ship competing
+// with the Vessel. Shell ≈ 0.8u across; core glow stays below bloom blowout.
+export const WITNESS_SCALE = 0.072;
 export const WITNESS_DIMS = { length: 11, height: 11, width: 11 };
 
 export function buildWitnessMap(P = SHIP_PALETTE) {
@@ -51,11 +53,12 @@ export function buildWitnessRig() {
     shell.castShadow = true;
     rig.add(shell);
 
-    // The core: it is looking at you.
+    // The core: it is looking at you. Intensity stays in the canopy band so
+    // the orb doesn't bloom bigger than the Vessel next to it.
     const coreMat = new THREE.MeshStandardMaterial({
-        color: 0x140a24, emissive: VIOLET, emissiveIntensity: 2.4
+        color: 0x140a24, emissive: VIOLET, emissiveIntensity: 1.15
     });
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 12), coreMat);
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 12), coreMat);
     rig.add(core);
 
     // The equatorial ring — the thing that makes it heavier than a bullet.
@@ -63,7 +66,7 @@ export function buildWitnessRig() {
         color: PICKUP_PALETTE.shardShell, transparent: true, opacity: 0.75,
         toneMapped: false, side: THREE.DoubleSide
     });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.035, 8, 28), ringMat);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.03, 8, 28), ringMat);
     rig.add(ring);
 
     // Level 2 and 3 each add ONE orbiting spark (ASSETS_PLAN §4: upgrades add
@@ -71,9 +74,9 @@ export function buildWitnessRig() {
     const sparks = [];
     for (let i = 0; i < 2; i++) {
         const s = new THREE.Mesh(
-            new THREE.SphereGeometry(0.055, 8, 6),
+            new THREE.SphereGeometry(0.045, 8, 6),
             new THREE.MeshStandardMaterial({
-                color: 0x0a1420, emissive: SHIP_PALETTE.canopyGlow, emissiveIntensity: 2.6
+                color: 0x0a1420, emissive: SHIP_PALETTE.canopyGlow, emissiveIntensity: 1.4
             })
         );
         s.visible = false;
