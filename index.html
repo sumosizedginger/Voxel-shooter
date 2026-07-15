@@ -3,23 +3,170 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Voxel Engine Kit — smoke test</title>
+    <title>GUMOI: The Lattice Break</title>
     <link rel="icon" href="data:,">
     <style>
-        html, body { margin: 0; height: 100%; background: #0a0514; overflow: hidden; font-family: ui-monospace, monospace; }
-        #hud {
-            position: fixed; top: 12px; left: 12px; z-index: 10;
-            color: #cfe8ff; background: rgba(8,6,20,0.72); border: 1px solid #2a2a44;
-            padding: 12px 14px; border-radius: 8px; font-size: 13px; line-height: 1.55;
-            max-width: 340px; white-space: pre-wrap;
+        html, body {
+            margin: 0; height: 100%; background: #0a0514; overflow: hidden;
+            font-family: ui-monospace, "Cascadia Mono", Menlo, monospace;
+            color: #cfe8ff;
         }
-        #hud b { color: #7fe0ff; }
-        #hud .ok { color: #7CFFB0; }
-        #hud .no { color: #ff7a90; }
-        #nav { position: fixed; top: 12px; right: 12px; z-index: 10; }
-        #nav a { color: #7fe0ff; font-family: ui-monospace, monospace; font-size: 12px; text-decoration: none; }
+        canvas { display: block; }
+
+        /* ── HUD (Phase 7 fills this out; Phase 0 just needs the frame) ── */
+        #hud.large { font-size: 1.22em; }
+        #hud.large .val { font-size: 1.15em; }
+        #hud.large .pseg { width: 76px; height: 11px; }
+        #hud.large #hullTrack { height: 14px; }
+        #hud {
+            position: fixed; inset: 0; z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 14px 18px;
+        }
+        #hudTop { display: flex; justify-content: space-between; align-items: flex-start; }
+        #hudBottom { display: flex; justify-content: space-between; align-items: flex-end; }
+        .panel {
+            background: rgba(8, 6, 20, 0.6); border: 1px solid #2a2a44;
+            border-radius: 6px; padding: 8px 12px; font-size: 13px; line-height: 1.5;
+        }
+        .label { color: #6d7796; font-size: 10px; letter-spacing: 0.14em; }
+        .val { color: #cfe8ff; font-size: 16px; }
+        .val.hi { color: #8b5cf6; }
+
+        /* Hull integrity (NARRATIVE C2) — the HUD half of the damage display;
+           the other half is the ship's own scar glow, and they share a color. */
+        #hullTrack {
+            width: 190px; height: 9px; margin-top: 4px;
+            background: #171a2c; border: 1px solid #2a2a44; border-radius: 5px;
+            overflow: hidden;
+        }
+        #hullBar {
+            height: 100%; width: 100%; background: #7fd8ff;
+            transition: width 0.12s linear, background 0.3s linear;
+        }
+
+        /* Siren Pulse gauge — three segments (C3). */
+        #pulseGauge { display: flex; gap: 4px; margin-top: 4px; }
+        .pseg {
+            width: 60px; height: 8px; background: #171a2c;
+            border: 1px solid #2a2a44; border-radius: 3px;
+            transition: background 0.1s linear, opacity 0.1s linear;
+        }
+
+        #arsenal { min-width: 150px; }
+        .arow { display: flex; justify-content: space-between; gap: 14px; line-height: 1.7; }
+        .val.sm { font-size: 13px; }
+
+        /* Boss HP bar — hidden until a boss owns the arena. */
+        #bossBarWrap {
+            position: fixed; left: 50%; top: 64px; transform: translateX(-50%);
+            z-index: 12; width: min(62vw, 720px); display: none; text-align: center;
+        }
+        #bossName {
+            font-size: 11px; letter-spacing: 0.3em; color: #d8b0b0; margin-bottom: 4px;
+            text-shadow: 0 0 10px rgba(255,60,90,0.5);
+        }
+        #bossTrack {
+            height: 10px; background: #1a1016; border: 1px solid #4a2030; border-radius: 5px;
+            overflow: hidden;
+        }
+        #bossBar {
+            height: 100%; width: 100%;
+            background: linear-gradient(90deg, #ff2a5a, #ff6a4a);
+            transition: width 0.15s linear;
+        }
+
+        #pickupFlash {
+            position: fixed; left: 50%; top: 38%; transform: translateX(-50%);
+            z-index: 12; pointer-events: none;
+            color: #e8e0f8; font-size: 22px; letter-spacing: 0.28em;
+            text-shadow: 0 0 18px rgba(139,92,246,0.7);
+            transition: opacity 0.2s linear;
+        }
+
+        /* ── full-screen overlay: title / pause / game over ── */
+        #overlay {
+            position: fixed; inset: 0; z-index: 20;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 10px; background: rgba(6, 4, 14, 0.72); text-align: center;
+        }
+        #overlayTitle {
+            font-size: clamp(40px, 9vw, 96px); letter-spacing: 0.22em; margin: 0;
+            color: #e8e0f8; text-shadow: 0 0 26px rgba(139, 92, 246, 0.55);
+        }
+        #overlaySub { font-size: 14px; letter-spacing: 0.3em; color: #9fb4d8; }
+        #overlaySub .dim { color: #6d7796; letter-spacing: 0.18em; }
+        #overlaySub .sel { color: #8b5cf6; text-shadow: 0 0 12px rgba(139,92,246,0.7); }
+
+        /* The BETWEEN — the non-dual white. The seal is the last frame. */
+        #overlay.white { background: rgba(244, 244, 250, 0.97); }
+        #overlay.white #overlayTitle { color: #2c2450; text-shadow: 0 0 30px rgba(139,92,246,0.4); }
+        #overlay.white #overlaySub { color: #4a4470; }
+        #overlay.white #overlaySub .dim { color: #6a6488; }
+        #overlayTitle .seal { letter-spacing: 0.14em; font-size: clamp(44px, 10vw, 110px); }
+        #overlaySub .codexbody {
+            display: inline-block; max-width: 620px; text-align: left;
+            font-size: 13px; line-height: 1.6; letter-spacing: 0.02em; color: #b8c4dc;
+        }
+
+        /* Comms line — cockpit banter (S1), lower-left, never over the ship. */
+        #comms {
+            position: fixed; left: 18px; bottom: 92px; z-index: 12; display: none;
+            max-width: 46vw; font-size: 14px; line-height: 1.5; color: #cfe0f5;
+            background: rgba(6,4,14,0.66); border-left: 3px solid #8b5cf6;
+            padding: 8px 14px; border-radius: 0 6px 6px 0;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+        #comms .who { font-weight: 700; letter-spacing: 0.12em; font-size: 11px; }
+        #comms .who.gumoi { color: #ff8a5c; }
+        #comms .who.sumo { color: #7fd8ff; }
+
+        /* S2 cast tags over enemies */
+        #castLayer { position: fixed; inset: 0; z-index: 11; pointer-events: none; overflow: hidden; }
+        .castTag {
+            position: absolute; transform: translate(-50%, -120%);
+            font-size: 11px; letter-spacing: 0.12em; color: #e8e0f8;
+            background: rgba(20, 8, 30, 0.75); border: 1px solid #8b5cf6;
+            padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+            text-shadow: 0 0 8px rgba(139,92,246,0.7);
+        }
+        .castTag.wp { color: #c4b5fd; border-color: #a78bfa; font-weight: 700; }
+
+        #sysMeter {
+            position: fixed; right: 18px; top: 72px; z-index: 12;
+            font-size: 12px; letter-spacing: 0.16em; color: #ffb070;
+            text-shadow: 0 0 10px rgba(255,120,40,0.5); display: none;
+            background: rgba(8,6,20,0.55); border: 1px solid #4a3020;
+            padding: 4px 10px; border-radius: 4px;
+        }
+
+        /* ── debug overlay (backquote) ── */
+        #debug {
+            position: fixed; left: 12px; bottom: 12px; z-index: 15; display: none;
+            background: rgba(8, 6, 20, 0.82); border: 1px solid #2a2a44; border-radius: 6px;
+            padding: 8px 10px; font-size: 11px; line-height: 1.5; white-space: pre;
+            color: #7CFFB0; pointer-events: none;
+        }
+
+        /* God mode (G) + secret Ctrl×10 dev mode watermarks */
+        #godBadge, #devBadge {
+            position: fixed; z-index: 30; display: none; pointer-events: none;
+            font-size: 11px; letter-spacing: 0.28em;
+            padding: 5px 14px; border-radius: 4px;
+        }
+        #godBadge {
+            top: 12px; right: 18px; color: #ffb070;
+            background: rgba(30, 14, 8, 0.85); border: 1px solid #6a4020;
+            text-shadow: 0 0 10px rgba(255, 160, 80, 0.5);
+        }
+        #devBadge {
+            top: 12px; left: 50%; transform: translateX(-50%); color: #7CFFB0;
+            background: rgba(8, 20, 12, 0.85); border: 1px solid #2a6a40;
+            text-shadow: 0 0 10px rgba(124, 255, 176, 0.5);
+        }
+        #godBadge.on, #devBadge.on { display: block; }
     </style>
-    <!-- three r185, vendored locally (offline). Same import map the game uses. -->
+    <!-- three r185, vendored locally (offline). Same import map index.html uses. -->
     <script type="importmap">
     {
         "imports": {
@@ -30,99 +177,83 @@
     </script>
 </head>
 <body>
-    <div id="hud">loading…</div>
-    <div id="nav"><a href="./examples/topdown-8way.html">top-down example &rarr;</a> &nbsp;|&nbsp; <a href="./examples/voxel-showcase.html">showcase &rarr;</a></div>
+    <div id="hud">
+        <div id="hudTop">
+            <div class="panel">
+                <div class="label">SCORE</div>
+                <div class="val" id="hudScore">0</div>
+            </div>
+            <div class="panel">
+                <div class="label">LIVES</div>
+                <div class="val" id="hudLives">&times;3</div>
+            </div>
+        </div>
+        <div id="hudBottom">
+            <div class="panel">
+                <div class="label">HULL INTEGRITY</div>
+                <div id="hullTrack"><div id="hullBar"></div></div>
+                <div class="label" style="margin-top:8px">SIREN PULSE</div>
+                <div id="pulseGauge">
+                    <div class="pseg"></div><div class="pseg"></div><div class="pseg"></div>
+                </div>
+            </div>
+            <div class="panel" id="arsenal">
+                <div class="arow"><span class="label">WEAPON</span> <span class="val sm" id="hudWeapon">SIREN</span></div>
+                <div class="arow"><span class="label">WITNESS</span> <span class="val sm" id="hudWitness">LV1</span></div>
+                <div class="arow"><span class="label">COUNCIL</span> <span class="val sm" id="hudDrones">&mdash;</span></div>
+            </div>
+            <div class="panel">
+                <div class="label">LEVEL</div>
+                <div class="val" id="hudLevel">&mdash;</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="bossBarWrap">
+        <div id="bossName">THE BEIGE SLOPE</div>
+        <div id="bossTrack"><div id="bossBar"></div></div>
+    </div>
+
+    <div id="pickupFlash"></div>
+
+    <div id="comms"></div>
+    <div id="castLayer"></div>
+    <div id="sysMeter"></div>
+
+    <div id="overlay">
+        <h1 id="overlayTitle">GUMOI</h1>
+        <div id="overlaySub">THE LATTICE BREAK<br><span class="dim">press any key</span></div>
+    </div>
+
+    <div id="debug"></div>
+    <div id="godBadge">GOD · score off</div>
+    <div id="devBadge">DEV MODE · god · debug · no score</div>
+
     <script type="module">
-        import * as THREE from 'three';
-        import { scene, camera, renderer, composer, onResize } from './src/engine/renderer.js';
-        import { initLights } from './src/engine/lights.js';
-        import { ParticleSystem } from './src/engine/particles.js';
-        import { fillBox, fillEllipsoid } from './src/voxel/helpers.js';
-        import { buildVoxelGeo } from './src/voxel/core.js';
-        import { CollisionWorld } from './src/engine/collision.js';
-        import { makeFacing } from './src/combat/facing.js';
-        import { hitboxCheck } from './src/combat/hitbox.js';
-
-        // ── Scene setup ────────────────────────────────────────────────────
-        initLights();
-        // Reframe the (belt-scroller) camera for a simple turntable view.
-        camera.position.set(0, 6, 12);
-        camera.lookAt(0, 1.6, 0);
-        window.addEventListener('resize', onResize);
-
-        // A ground plane so shadows land somewhere.
-        const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(60, 60),
-            new THREE.MeshStandardMaterial({ color: 0x161226, roughness: 1 })
-        );
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        scene.add(ground);
-
-        // ── A voxel figure straight from the kit's voxel pipeline ───────────
-        const vox = new Map();
-        fillBox(vox, -3, 3, 0, 9, -2, 2, 0x3f6fe0);           // torso
-        fillEllipsoid(vox, 0, 13, 0, 3.2, 3.2, 3.2, 0xf0c090); // head
-        fillBox(vox, -3, 3, 10, 16, -1, 1, 0x2a3050);          // neck/collar
-        const mesh = new THREE.Mesh(
-            buildVoxelGeo(vox),
-            new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85 })
-        );
-        mesh.castShadow = true;
-        mesh.scale.setScalar(0.12);
-        const rig = new THREE.Group();
-        rig.add(mesh);
-        scene.add(rig);
-
-        const particles = new ParticleSystem(scene);
-
-        // ── Live proof: the vectorized hitbox + collision primitives ────────
-        // An attacker at the origin, a target parked off to +X+Z. As the
-        // attacker's facing sweeps around, hitboxCheck flips on only when the
-        // cone actually points at the target — that's the 8-way facing at work.
-        const attacker = { root: { position: { x: 0, y: 0, z: 0 } }, state: makeFacing(1) };
-        const target = { root: { position: { x: 1.4, y: 0, z: 0.9 } }, hitRadius: 0.4, state: { current: 'IDLE' } };
-        const MOVE = { range: 1.6, depthTolerance: 0.9, vertical: 1.2 };
-
-        // A collision world with one wall, to show blocking + slide.
-        const cw = new CollisionWorld();
-        cw.addSolid({ minX: 2, maxX: 3, minZ: -6, maxZ: 6 });
-        const blocked = cw.resolveMove(0, 0, 5, 0, 0.4);     // walks into the wall
-        const slid = cw.resolveMove(0, 0, 1.5, 4, 0.4);      // slides alongside it
-
-        const hud = document.getElementById('hud');
-        const clock = new THREE.Clock();
-        let angle = 0;
-
-        // Test hook: the smoke spec reads renderer.info to confirm frames are
-        // actually drawing (not just that the page loaded without errors).
-        window.__engineKit = { renderer, composer, scene };
-
-        function frame() {
-            const dt = Math.min(0.05, clock.getDelta());
-            angle += dt * 1.2;
-            // Sweep the attacker's facing vector around the compass.
-            attacker.state.setFacing(Math.cos(angle), Math.sin(angle));
-            const hit = hitboxCheck(attacker, target, MOVE);
-
-            rig.rotation.y += dt * 0.6;
-            if (particles.update) particles.update(dt);
-            composer.render();
-
-            const fv = attacker.state.facingVec;
-            hud.innerHTML =
-                '<b>voxel engine kit</b> — smoke test\n' +
-                'renderer + bloom: <span class="ok">up</span>\n' +
-                'voxel figure: <span class="ok">built</span>\n\n' +
-                '<b>vectorized hitbox</b>\n' +
-                'facing → (' + fv.x.toFixed(2) + ', ' + fv.z.toFixed(2) + ')\n' +
-                'cone on target: ' + (hit ? '<span class="ok">HIT</span>' : '<span class="no">miss</span>') + '\n\n' +
-                '<b>AABB collision</b>\n' +
-                'into wall x=5 → stopped at x=' + blocked.x.toFixed(2) + '\n' +
-                'slide past → (' + slid.x.toFixed(2) + ', ' + slid.z.toFixed(2) + ')';
-            requestAnimationFrame(frame);
-        }
-        frame();
+        import { boot } from './src/shmup/game.js';
+        boot({
+            overlay: document.getElementById('overlay'),
+            overlayTitle: document.getElementById('overlayTitle'),
+            overlaySub: document.getElementById('overlaySub'),
+            debug: document.getElementById('debug'),
+            score: document.getElementById('hudScore'),
+            lives: document.getElementById('hudLives'),
+            hull: document.getElementById('hullBar'),
+            level: document.getElementById('hudLevel'),
+            pulseSegs: Array.from(document.querySelectorAll('#pulseGauge .pseg')),
+            weapon: document.getElementById('hudWeapon'),
+            witness: document.getElementById('hudWitness'),
+            drones: document.getElementById('hudDrones'),
+            pickupFlash: document.getElementById('pickupFlash'),
+            bossWrap: document.getElementById('bossBarWrap'),
+            bossBar: document.getElementById('bossBar'),
+            bossName: document.getElementById('bossName'),
+            comms: document.getElementById('comms'),
+            castLayer: document.getElementById('castLayer'),
+            sysMeter: document.getElementById('sysMeter'),
+            godBadge: document.getElementById('godBadge'),
+            devBadge: document.getElementById('devBadge')
+        });
     </script>
 </body>
 </html>

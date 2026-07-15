@@ -117,5 +117,89 @@ export const sfx = {
     interrupt() {
         playTone('square', 1200, 300, 0.14, 0.3, 3000);
         playNoise(0.12, 0.24, 'bandpass', 2600, 900, 2.0);
+    },
+
+    // ── expanded kit (presentation pass)
+    /** Word-bullet spawn / whoosh (L4). */
+    wordFire() {
+        playTone('triangle', 240, 480, 0.14, 0.12, 1400);
+        playTone('square', 90, 140, 0.1, 0.08, 800);
+    },
+    /** Profanity Key cancel success. */
+    profanity() {
+        playTone('sawtooth', 180, 900, 0.16, 0.28, 2200);
+        playNoise(0.1, 0.22, 'highpass', 1800, null, 1.4);
+    },
+    /** Arena modifier kick (Jester). */
+    modKick() {
+        playTone('square', 70, 40, 0.2, 0.35, 500);
+        playNoise(0.15, 0.25, 'lowpass', 600, 80);
+    },
+    /** Heat warning tick. */
+    heatWarn() {
+        playTone('square', 420, 280, 0.05, 0.1, 1600);
+    },
+    /** Heat weapons offline. */
+    heatOffline() {
+        playTone('sawtooth', 200, 60, 0.4, 0.35, 700);
+        playNoise(0.2, 0.3, 'bandpass', 900, 400, 1.5);
+    },
+    /** Temporal fold enter (L10). */
+    temporal() {
+        playTone('sine', 110, 55, 0.8, 0.3);
+        playTone('triangle', 330, 165, 0.9, 0.18);
+        playNoise(0.3, 0.15, 'lowpass', 400, 100);
+    },
+    /** Shadow ghost flash. */
+    shadowTick() {
+        playTone('sine', 500, 200, 0.08, 0.1);
+    },
+    /** Loadout seat change. */
+    loadoutTick() {
+        playTone('square', 640, 720, 0.04, 0.08, 2800);
+    },
+    /** Menu back / cancel. */
+    uiBack() {
+        playTone('square', 700, 350, 0.05, 0.08, 2000);
+    },
+    /** Boss phase sting. */
+    phaseShift() {
+        playTone('sawtooth', 140, 420, 0.28, 0.28, 1200);
+        playTone('sine', 280, 140, 0.35, 0.16);
+    },
+    /** Checkpoint chime. */
+    checkpoint() {
+        playTone('sine', 520, 780, 0.18, 0.18);
+        playTone('triangle', 780, 1040, 0.22, 0.12);
+    },
+
+    // ── ship-quality event bank (hit/kill/boss phase/word/cast already above)
+    /** Enemy kill — short dry tick distinct from player hurt. */
+    kill() {
+        playTone('square', 480, 180, 0.05, 0.1, 2200);
+        playNoise(0.04, 0.12, 'bandpass', 1800, 900, 1.8);
+    },
+    /** Boss volley after telegraph completes. */
+    bossVolley() {
+        playTone('sawtooth', 110, 70, 0.12, 0.22, 900);
+        playNoise(0.08, 0.18, 'lowpass', 700, 150);
+    },
+    /** Pre-fire telegraph windup. */
+    telegraph() {
+        playTone('triangle', 260, 420, 0.18, 0.12, 1600);
+        playTone('sine', 130, 200, 0.2, 0.08);
+    },
+    /** L6 scar opens — cast gate. */
+    scarOpen() {
+        playTone('sine', 300, 600, 0.25, 0.18);
+        playTone('triangle', 520, 880, 0.3, 0.1);
+    },
+    /** Generic cast open (elite interrupt window). */
+    castOpen() {
+        playTone('triangle', 200, 340, 0.4, 0.12, 1400);
+    },
+    /** Tip / onboarding chime (UI, soft). */
+    tip() {
+        playTone('sine', 660, 880, 0.12, 0.1);
     }
 };

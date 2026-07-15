@@ -14,6 +14,10 @@
         canvas { display: block; }
 
         /* ── HUD (Phase 7 fills this out; Phase 0 just needs the frame) ── */
+        #hud.large { font-size: 1.22em; }
+        #hud.large .val { font-size: 1.15em; }
+        #hud.large .pseg { width: 76px; height: 11px; }
+        #hud.large #hullTrack { height: 14px; }
         #hud {
             position: fixed; inset: 0; z-index: 10; pointer-events: none;
             display: flex; flex-direction: column; justify-content: space-between;

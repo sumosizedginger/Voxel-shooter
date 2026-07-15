@@ -56,10 +56,11 @@ export function spawn(pool, init) {
         const i = (pool._cursor + n) % capacity;
         const b = items[i];
         if (b.alive) continue;
-        // Reset every field: a recycled slot must not inherit the last bullet's
-        // pierce count or homing target.
-        const fresh = blank();
-        Object.assign(b, fresh, init, { alive: true });
+        // Wipe ALL own keys (including ad-hoc word/onlyProfanity/heals/bossShot
+        // left by a prior spawn) then re-seed from blank + init. Object.assign
+        // alone cannot delete leftover keys and will pollute recycled slots.
+        for (const k of Object.keys(b)) delete b[k];
+        Object.assign(b, blank(), init, { alive: true });
         pool._cursor = (i + 1) % capacity;
         pool.live++;
         return b;

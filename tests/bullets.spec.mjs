@@ -35,6 +35,19 @@ export function run(t) {
     t.ok('recycled slots are fully reset', reused.pierce === 0 && reused.target === null
         && reused.homing === 0 && reused.life === 0);
 
+    // Ad-hoc keys (word bullets) must not pollute the next spawn in the slot.
+    kill(p, reused);
+    spawn(p, {
+        x: 1, y: 1, kind: KIND.WORD, word: 'DELVE', onlyProfanity: true,
+        heals: true, bossShot: true
+    });
+    for (const b of p.items) if (b.alive && b.kind === KIND.WORD) kill(p, b);
+    const clean = spawn(p, { x: 2, y: 2, kind: KIND.ENEMY_ORB, vx: -1, vy: 0 });
+    t.ok('recycled slot drops onlyProfanity/word flags',
+        clean && clean.onlyProfanity === undefined && clean.word === undefined
+        && clean.heals === undefined && clean.bossShot === undefined
+        && clean.kind === KIND.ENEMY_ORB);
+
     clearPool(p);
     t.ok('clearPool() empties the pool', p.live === 0);
 

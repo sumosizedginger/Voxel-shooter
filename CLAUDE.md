@@ -29,13 +29,14 @@ superseded by the bible's ten levels).
 - Zero-build, offline-first three.js (r185, vendored in `lib/three/`). No
   bundler, no runtime npm deps. New HTML pages need the import map from
   `index.html`.
-- Serve: `npm run serve` → http://localhost:8799
+- Serve: `npm run serve` → http://localhost:8799 (game is `index.html`;
+  `game.html` is the same entry; engine kit smoke is `kit.html`)
 - Tests: `npm test` (needs Chrome/Edge; `CHROME_PATH` env var works).
   Unit-only: `npm run test:unit`. New specs go in `tests/*.spec.mjs`,
   registered in `tests/run-all.mjs`, using `createSink` from `tests/harness.mjs`.
-- All new game code goes in `src/shmup/` + `game.html`. Do not modify
-  `src/engine/`, `src/voxel/`, `src/combat/`, `src/audio/` unless PLAN.md
-  explicitly says so. `index.html` (smoke test), both `examples/`, and all
+- All new game code goes in `src/shmup/` + `index.html`/`game.html`. Do not
+  modify `src/engine/`, `src/voxel/`, `src/combat/`, `src/audio/` unless PLAN.md
+  explicitly says so. `kit.html` (engine smoke), both `examples/`, and all
   existing tests must keep passing.
 - Gameplay coordinate convention: XY plane at Z=0, X = scroll direction,
   Y = up, playfield y ∈ [0, 16]. See PLAN.md §2 before touching anything.

@@ -20,13 +20,13 @@ export const ROSTER = {
         asset: 'darter', hp: 1, r: 0.34, score: 150, contactKills: true,
         pattern: 'swoopIn', fire: 'apexShot',
         patternState: { hold: 0.5, diveSpeed: 12 },
-        fireState: { speed: 11, dmg: 8 },
+        fireState: { speed: 11, dmg: 7 },
         vx: -9
     },
     gunpod: {
         asset: 'gunpod', hp: 3, r: 0.5, score: 300, contactKills: true,
         pattern: 'hoverAndAim', fire: 'burstShot',
-        fireState: { every: 2.6, count: 3, burstGap: 0.12, speed: 10, dmg: 6 },
+        fireState: { every: 2.85, count: 3, burstGap: 0.12, speed: 10, dmg: 6 },
         vx: -1.2, hasBarrel: true
     },
     crawler: {
@@ -45,7 +45,7 @@ export const ROSTER = {
         asset: 'lancer', hp: 4, r: 0.55, score: 400, contactKills: true,
         pattern: 'sineDrift', fire: 'spreadShot',
         patternState: { amp: 3, freq: 0.22 },
-        fireState: { every: 2.5, count: 2, spread: 0.4, speed: 8, dmg: 7 },
+        fireState: { every: 2.7, count: 2, spread: 0.4, speed: 8, dmg: 7 },
         vx: -2.8
     },
     carrier: {

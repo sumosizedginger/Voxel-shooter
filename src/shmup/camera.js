@@ -8,6 +8,7 @@
 // pattern, not a hack. We own position + lookAt every frame; nothing else does.
 
 import { camera, visibleHalfWidthAt } from '../engine/renderer.js';
+import { getSetting } from '../engine/settings.js';
 
 // Framing, tuned by eye (PLAN.md §2.2 explicitly invites this): we want the
 // 16-unit playfield band to just fill the screen height, so the Vessel reads at
@@ -36,6 +37,19 @@ let _shakeAmp = 0;
 let _shakeDecay = 1;
 let _shakeT = 0;
 const _bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+
+/** Accessibility: reduceMotion kills camera shake offset (amp still decays). */
+function _shakeSuppressed() {
+    try { return !!getSetting('reduceMotion'); } catch (e) { return false; }
+}
+
+/** lowerShake scales amplitude; reduceMotion still fully suppresses. */
+function _shakeScale() {
+    try {
+        if (getSetting('lowerShake')) return 0.35;
+        return 1;
+    } catch (e) { return 1; }
+}
 
 /** Put the playhead at an absolute x (level start, checkpoint rewind). */
 export function setScrollX(x) {
@@ -74,7 +88,7 @@ function applyCamera() {
     // accumulate into scrollX, or a few explosions would drift the whole level.
     camera.position.set(scrollX, PLAY_Y, CAM_Z);
     camera.lookAt(scrollX, PLAY_Y, 0);
-    if (_shakeAmp > 0) {
+    if (_shakeAmp > 0 && !_shakeSuppressed()) {
         camera.position.x += Math.sin(_shakeT * 61) * _shakeAmp;
         camera.position.y += Math.sin(_shakeT * 47 + 1.7) * _shakeAmp;
     }
@@ -89,8 +103,10 @@ function applyCamera() {
  * A bigger shake always wins over a smaller one still decaying.
  */
 export function shakeCamera(amp, decay = 2.2) {
-    if (amp > _shakeAmp) {
-        _shakeAmp = amp;
+    if (_shakeSuppressed()) return;
+    const scaled = amp * _shakeScale();
+    if (scaled > _shakeAmp) {
+        _shakeAmp = scaled;
         _shakeDecay = decay;
     }
 }

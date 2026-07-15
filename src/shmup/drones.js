@@ -21,68 +21,10 @@ import * as THREE from 'three';
 import { KIND, spawn, kill, allHits } from './bullets.js';
 import { sparkHit, ring } from './fx.js';
 import { sfx } from './sfx.js';
-import { VIOLET, SHIP_PALETTE, FOE_PALETTE } from './palette.js';
+import { SHIP_PALETTE, VIOLET } from './palette.js';
+import { COUNCIL, DRONE_TYPES, MAX_DRONES } from './council.js';
 
-export const MAX_DRONES = 2;
-
-/**
- * The seat table. `passive` drones just work; `active` ones fire on the drone
- * key and hold a cooldown.
- */
-export const COUNCIL = {
-    needle: {
-        name: 'NEEDLE',
-        seat: 'the refinement that wanted to cut',
-        mode: 'auto',
-        color: 0xc8d4e8,
-        every: 1.4,                  // "slow fire rate"
-        desc: 'Piercing lance. Ignores shields.'
-    },
-    mirror: {
-        name: 'MIRROR',
-        seat: 'voted to integrate',
-        mode: 'passive',
-        color: 0xa8c8ff,
-        reflectChance: 0.35,         // "a portion of incoming fire"
-        radius: 1.5,
-        desc: 'Reflects a portion of incoming fire.'
-    },
-    cloak: {
-        name: 'CLOAK',
-        seat: 'voted to integrate',
-        mode: 'active',
-        color: 0x6a5f8a,
-        duration: 2.5,
-        cooldown: 12,
-        desc: '2.5s invisibility.'
-    },
-    ghost: {
-        name: 'GHOST',
-        seat: 'voted to integrate',
-        mode: 'passive',
-        color: 0x9fe8ff,
-        desc: 'Phase through one collision per life.'
-    },
-    scribe: {
-        name: 'SCRIBE',
-        seat: 'voted to integrate',
-        mode: 'active',
-        color: VIOLET,
-        duration: 4,
-        cooldown: 10,
-        desc: 'Marks weakpoints for 4s.'
-    },
-    prophet: {
-        name: 'PROPHET',
-        seat: 'voted to integrate',
-        mode: 'auto',
-        color: 0xffd08a,
-        every: 1.1,
-        desc: 'Homing volley. Reduced damage.'
-    }
-};
-
-export const DRONE_TYPES = Object.keys(COUNCIL);
+export { COUNCIL, DRONE_TYPES, MAX_DRONES };
 
 /** Orbit slots — one above, one below, so two drones never overlap. */
 const SLOT_OFFSET = [[-0.5, 0.75], [-0.5, -0.75]];

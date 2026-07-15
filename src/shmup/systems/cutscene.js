@@ -17,7 +17,9 @@ export function createCutscenePlayer() {
         shotIndex: 0,
         holdT: 0,
         waitingLines: false,
-        onDone: null
+        onDone: null,
+        diorama: null,
+        levelId: 0
     };
 }
 
@@ -39,7 +41,28 @@ export function playCutscene(player, script, host, onDone = null) {
     player.waitingLines = false;
     player.onDone = onDone;
     player.host = host;
+    player.levelId = (script && script.levelId) || 0;
+    // Optional voxel diorama (GUMOI bust + stage prop). Host injects builders
+    // so this module stays THREE-free and unit-testable.
+    clearDiorama(player);
+    if (host && host.spawnDiorama && !reduce(host)) {
+        try {
+            const mode = (script && script.dioramaMode) || 'open';
+            player.diorama = host.spawnDiorama(player.levelId, script.scrollX || 0, { mode });
+        } catch (e) {
+            player.diorama = null;
+        }
+    }
     applyShot(player, script.shots[0]);
+}
+
+function clearDiorama(player) {
+    if (!player) return;
+    const host = player.host;
+    if (player.diorama && host && host.disposeDiorama) {
+        try { host.disposeDiorama(player.diorama); } catch (e) { /* ignore */ }
+    }
+    player.diorama = null;
 }
 
 function reduce(host) {
@@ -101,6 +124,7 @@ export function skipCutscene(player) {
 
 function finish(player) {
     player.active = false;
+    clearDiorama(player);
     if (player.host && player.host.clearCineCamera) player.host.clearCineCamera();
     const cb = player.onDone;
     player.onDone = null;
@@ -112,32 +136,81 @@ export function cutsceneActive(player) {
     return !!(player && player.active);
 }
 
-/** Built-in scripts for each level open (cine + line id). */
+/** Longer holds where bible needs weight (L1 introduce, L6 sun, L10 seal). */
+function weightHold(levelId, base) {
+    if (levelId === 1 || levelId === 6 || levelId === 10) return base + 1.4;
+    if (levelId === 9) return base + 0.6;
+    return base;
+}
+
+/** Built-in scripts for each level open (cine + line id + diorama kit). */
 export function levelOpenCutscene(levelId, scrollX = 0) {
     const x = scrollX;
     const id = levelId < 10 ? 'L0' + levelId + '_open' : 'L' + levelId + '_open';
+    // Slight per-level framing so stages don't share one identical open.
+    const zNear = 15 + (levelId % 3);
+    const yHigh = 9 + (levelId % 2);
     return {
         id: 'open_' + levelId,
+        levelId,
+        scrollX: x,
+        dioramaMode: 'open',
         shots: [
             {
-                pos: { x: x - 4, y: 10, z: 16 },
-                look: { x: x + 6, y: 8, z: 0 },
+                // Establish: GUMOI bust + stage silhouette + boss ghost.
+                pos: { x: x - 3, y: yHigh + 1, z: zNear },
+                look: { x: x + 4, y: 8, z: 0 },
                 duration: 1.0,
-                hold: 0.6,
-                roll: 0
+                hold: weightHold(levelId, 0.7),
+                roll: levelId === 3 ? 0.04 : 0
             },
             {
-                pos: { x: x + 2, y: 8, z: 14 },
+                // Push in on the tunnel mouth / boss stage suggestion.
+                pos: { x: x + 2, y: 8, z: 13 },
+                look: { x: x + 11, y: 8, z: -1 },
+                duration: 1.15,
+                hold: weightHold(levelId, 3.5),
+                lineId: id
+            },
+            {
+                // Settle into play camera.
+                pos: { x: x, y: 8, z: 19.5 },
+                look: { x: x, y: 8, z: 0 },
+                duration: 0.9,
+                hold: 0.4
+            }
+        ]
+    };
+}
+
+/** Boss-entry cutscene kit (GUMOI + boss silhouette + prop). */
+export function levelBossCutscene(levelId, scrollX = 0) {
+    const x = scrollX;
+    const id = levelId < 10 ? 'L0' + levelId + '_boss' : 'L' + levelId + '_boss';
+    return {
+        id: 'boss_' + levelId,
+        levelId,
+        scrollX: x,
+        dioramaMode: 'boss',
+        shots: [
+            {
+                pos: { x: x + 4, y: 9, z: 14 },
                 look: { x: x + 10, y: 8, z: 0 },
-                duration: 1.2,
-                hold: 3.5,
+                duration: 0.9,
+                hold: weightHold(levelId, 0.6)
+            },
+            {
+                pos: { x: x + 6, y: 8, z: 12 },
+                look: { x: x + 12, y: 8, z: -1 },
+                duration: 1.0,
+                hold: weightHold(levelId, 3.2),
                 lineId: id
             },
             {
                 pos: { x: x, y: 8, z: 19.5 },
                 look: { x: x, y: 8, z: 0 },
-                duration: 0.9,
-                hold: 0.4
+                duration: 0.7,
+                hold: 0.3
             }
         ]
     };

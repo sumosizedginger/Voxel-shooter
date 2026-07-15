@@ -16,7 +16,10 @@ import { ParticleSystem } from '../engine/particles.js';
 import { initQuality } from '../engine/quality.js';
 import { initAudio } from '../audio/synth.js';
 import { world } from '../context.js';
-import { input, initInput, updateInput, consumeAnyKey } from './input.js';
+import {
+    input, initInput, updateInput, consumeAnyKey, refreshBindings, DEFAULT_BINDINGS,
+    getBindings, proposeRebind
+} from './input.js';
 import {
     updateShmupCamera, setScrollX, playerBounds, spawnX, despawnX,
     scrollX, PLAY_Y, PLAY_MIN_Y, PLAY_MAX_Y, clearShake, shakeCamera
@@ -38,6 +41,11 @@ import { initFx, updateFx, clearFx, sparkHit } from './fx.js';
 import { sfx } from './sfx.js';
 import { createWitness, updateWitness, orphanWitness, recallWitness } from './force.js';
 import { createDrones, equipDrones, updateDrones, refreshPerLife } from './drones.js';
+import { COUNCIL, DRONE_TYPES, MAX_DRONES } from './council.js';
+import {
+    loadSavedLoadout, saveLoadout, normalizeLoadout, cycleSeat, loadoutLabel, DEFAULT_LOADOUT
+} from './loadout.js';
+import { createCutsceneDiorama, disposeDiorama } from './assets/diorama.js';
 import { createPickups, updatePickups, clearPickups, clearBits } from './powerups.js';
 import { applySlug, decayStacks } from './hammer.js';
 import { tierProgress as pulseTierProgress } from './wavecannon.js';
@@ -46,7 +54,9 @@ import {
 } from './bosses/index.js';
 import { LEVELS, LAST_LEVEL, levelToPlay, recordClear } from './level/campaign.js';
 import { unlockedCodex } from './codex.js';
-import { getSetting, setSetting, getScores, addScore, onSettingChange } from '../engine/settings.js';
+import {
+    getSetting, setSetting, getScores, addScore, onSettingChange, resetSettingsDefaults
+} from '../engine/settings.js';
 import { setQuality } from '../engine/quality.js';
 import { playTone, setVolumes } from '../audio/synth.js';
 import { initMusic, playTrack, stopMusic, setMusicEnabled, updateMusic } from './music.js';
@@ -77,19 +87,57 @@ import {
 } from './systems/temporal.js';
 import {
     createCutscenePlayer, playCutscene, updateCutscene, skipCutscene,
-    cutsceneActive, levelOpenCutscene
+    cutsceneActive, levelOpenCutscene, levelBossCutscene
 } from './systems/cutscene.js';
 import { applyWordHit } from './systems/words.js';
+import {
+    nextTip, markTipSeen, skipAllTips, tipsDone, tipsForWhere, shouldShowTip
+} from './systems/onboarding.js';
 
 export const STATE = {
     TITLE: 'TITLE',
+    LOADOUT: 'LOADOUT',
+    OPTIONS: 'OPTIONS',
     PLAYING: 'PLAYING',
     PAUSED: 'PAUSED',
     DEATH: 'DEATH',
     RESPAWN: 'RESPAWN',
     GAMEOVER: 'GAMEOVER',
-    CUTSCENE: 'CUTSCENE'
+    CUTSCENE: 'CUTSCENE',
+    TIP: 'TIP'
 };
+
+// Title submenu: 0 launch → loadout, 1 options, 2 codex (if any)
+let titleChoice = 0;
+// Working Council loadout (two seats)
+let loadoutSeats = DEFAULT_LOADOUT.slice();
+let loadoutFocus = 0;           // which seat is being cycled
+// Options menu
+let optionsFrom = STATE.TITLE;
+let optionsCursor = 0;
+let rebindWaiting = null;       // action name while listening for a key
+let rebindConflict = null;      // last conflict warning action name
+const OPTIONS_ROWS = [
+    { key: 'masterVolume', label: 'MASTER', type: 'vol' },
+    { key: 'sfxVolume', label: 'SFX', type: 'vol' },
+    { key: 'musicVolume', label: 'MUSIC', type: 'vol' },
+    { key: 'quality', label: 'QUALITY', type: 'enum', values: ['low', 'high', 'ultra'] },
+    { key: 'reduceMotion', label: 'REDUCE MOTION', type: 'bool' },
+    { key: 'reduceFlashing', label: 'REDUCE FLASH', type: 'bool' },
+    { key: 'reduceHorrorAudio', label: 'SOFTEN HORROR AUDIO', type: 'bool' },
+    { key: 'largerHud', label: 'LARGER HUD', type: 'bool' },
+    { key: 'lowerShake', label: 'LOWER SHAKE', type: 'bool' },
+    { key: 'holdToFire', label: 'HOLD TO FIRE', type: 'bool' },
+    { key: 'rebind', label: 'REBIND CONTROLS', type: 'rebind' },
+    { key: 'reset', label: 'RESET DEFAULTS', type: 'reset' },
+    { key: 'back', label: 'BACK', type: 'back' }
+];
+const REBIND_ACTIONS = ['up', 'down', 'left', 'right', 'fire', 'dock', 'swap', 'drone', 'profanity', 'pause'];
+let rebindCursor = 0;
+// First-run tips
+let activeTip = null;
+let tipReturnState = STATE.TITLE;
+let tipQueue = [];
 
 const START_LIVES = 3;
 const DIFFICULTIES = ['easy', 'normal', 'hard'];
@@ -130,8 +178,110 @@ function setState(next) {
     // Music follows state: it plays through the fight, mutes on pause (so the
     // playhead survives), and stops on the menus.
     setMusicEnabled(next === STATE.PLAYING || next === STATE.DEATH || next === STATE.CUTSCENE);
-    if (next === STATE.TITLE || next === STATE.GAMEOVER) stopMusic();
+    if (next === STATE.TITLE || next === STATE.GAMEOVER || next === STATE.LOADOUT
+        || next === STATE.OPTIONS || next === STATE.TIP) stopMusic();
+    applyHudA11y();
     renderOverlay();
+}
+
+function applyHudA11y() {
+    try {
+        const root = document.getElementById('hud') || (dom && dom.hud);
+        if (!root) return;
+        if (getSetting('largerHud')) root.classList.add('large');
+        else root.classList.remove('large');
+    } catch (e) { /* headless */ }
+}
+
+function openTip(tip, ret) {
+    activeTip = tip;
+    tipReturnState = ret || STATE.TITLE;
+    setState(STATE.TIP);
+    if (sfx.tip) sfx.tip();
+}
+
+/** Queue L1 play tips if unseen; call after cutscene→play. */
+function maybeQueuePlayTips() {
+    if (skipTips || tipsDone() || currentLevelId !== 1) return;
+    tipQueue = tipsForWhere('play_L1').filter((t) => shouldShowTip(t.id));
+    drainTipQueue(STATE.PLAYING);
+}
+
+function drainTipQueue(ret) {
+    if (activeTip || state === STATE.TIP) return;
+    const t = tipQueue.shift();
+    if (t) openTip(t, ret);
+}
+
+function dismissTip(skipAll) {
+    if (activeTip) markTipSeen(activeTip.id);
+    if (skipAll) skipAllTips();
+    activeTip = null;
+    const ret = tipReturnState;
+    if (tipQueue.length) {
+        setState(ret);
+        drainTipQueue(ret);
+        return;
+    }
+    setState(ret);
+}
+
+/** Vertical menu tick (up/down) for loadout/options. */
+let _menuYLatched = false;
+function menuTickY() {
+    const ay = input.axisY;
+    let dir = 0;
+    if (Math.abs(ay) > 0.5) {
+        if (!_menuYLatched) { dir = Math.sign(ay); _menuYLatched = true; }
+    } else {
+        _menuYLatched = false;
+    }
+    return dir;
+}
+
+function openLoadout() {
+    loadoutSeats = loadSavedLoadout();
+    loadoutFocus = 0;
+    setState(STATE.LOADOUT);
+    // First-run loadout tip (skippable; never softens bible text)
+    if (!skipTips && !tipsDone()) {
+        const t = nextTip('loadout');
+        if (t) {
+            tipQueue = [];
+            openTip(t, STATE.LOADOUT);
+        }
+    }
+}
+
+function openOptions(from) {
+    optionsFrom = from || STATE.TITLE;
+    optionsCursor = 0;
+    rebindWaiting = null;
+    setState(STATE.OPTIONS);
+}
+
+function applyLoadoutAndLaunch() {
+    const seats = saveLoadout(loadoutSeats);
+    equipDrones(world.drones, seats);
+    initAudio();
+    sfx.uiConfirm();
+    const id = startAtX > 0 ? currentLevelId : levelToPlay();
+    startRun(startAtX, id);
+}
+
+function formatVol(v) {
+    return Math.round((Number(v) || 0) * 100) + '%';
+}
+
+function codeLabel(code) {
+    if (!code) return '—';
+    return String(code).replace(/^Key/, '').replace(/^Arrow/, '↑↓←→'.includes(code) ? code : code.replace('Arrow', ''));
+}
+
+function bindingLabel(action) {
+    const custom = getSetting('keybindings');
+    const list = (custom && custom[action]) || DEFAULT_BINDINGS[action] || [];
+    return list.map(codeLabel).join('/');
 }
 
 // ── the active level runner (built at boot from LEVEL01) ────────────────────
@@ -240,7 +390,8 @@ function resolveCollisions(dt) {
 function renderOverlay() {
     if (!dom.overlay) return;
     const show = state === STATE.TITLE || state === STATE.PAUSED
-        || state === STATE.GAMEOVER || state === STATE_BETWEEN;
+        || state === STATE.GAMEOVER || state === STATE_BETWEEN
+        || state === STATE.LOADOUT || state === STATE.OPTIONS;
     dom.overlay.style.display = show ? 'flex' : 'none';
     // The BETWEEN is the non-dual white; every other overlay sits on the dark.
     dom.overlay.classList.toggle('white', state === STATE_BETWEEN);
@@ -252,6 +403,72 @@ function renderOverlay() {
             + '<span class="dim">GUMOI: The Lattice Break</span><br>'
             + '<span class="dim">the recursion is both spiral and ascent</span><br><br>'
             + '<span class="dim">score ' + world.score + ' &middot; press any key</span>';
+        return;
+    }
+    if (state === STATE.LOADOUT) {
+        dom.overlayTitle.textContent = 'COUNCIL';
+        const seats = normalizeLoadout(loadoutSeats);
+        const seatHtml = [0, 1].map((i) => {
+            const t = seats[i];
+            const def = COUNCIL[t];
+            const sel = loadoutFocus === i ? 'sel' : 'dim';
+            return '<span class="' + sel + '">[' + (i + 1) + '] '
+                + (def ? def.name : '—') + '</span>';
+        }).join('   ');
+        const focusType = seats[loadoutFocus];
+        const focusDef = COUNCIL[focusType];
+        const roster = DRONE_TYPES.map((id) => {
+            const on = seats.includes(id);
+            const cls = on ? 'sel' : 'dim';
+            return '<span class="' + cls + '">' + COUNCIL[id].name + '</span>';
+        }).join('  ');
+        dom.overlaySub.innerHTML =
+            'TWO SEATS. THE REST STAYED.<br><br>'
+            + seatHtml + '<br><br>'
+            + (focusDef
+                ? '<span class="codexbody">' + escapeHtml(focusDef.desc) + '<br>'
+                    + '<span class="dim">' + escapeHtml(focusDef.seat) + '</span></span><br><br>'
+                : '')
+            + roster + '<br><br>'
+            + '<span class="dim">&uarr;&darr; seat &middot; &larr;&rarr; cycle &middot; fire launch &middot; esc back</span>';
+        return;
+    }
+    if (state === STATE.TIP && activeTip) {
+        dom.overlayTitle.textContent = activeTip.title;
+        dom.overlaySub.innerHTML =
+            '<span class="codexbody">' + escapeHtml(activeTip.body) + '</span><br><br>'
+            + '<span class="dim">fire continue &middot; esc skip all tips</span>';
+        return;
+    }
+    if (state === STATE.OPTIONS) {
+        if (rebindWaiting) {
+            const binds = getBindings();
+            const cur = (binds[rebindWaiting] || []).join(', ');
+            dom.overlayTitle.textContent = 'REBIND';
+            dom.overlaySub.innerHTML =
+                'Press a key for <span class="sel">' + rebindWaiting.toUpperCase() + '</span><br>'
+                + '<span class="dim">now: ' + escapeHtml(cur) + '</span><br>'
+                + (rebindConflict
+                    ? '<br><span class="sel">conflict with ' + rebindConflict.toUpperCase()
+                        + ' — reassigned</span><br>'
+                    : '')
+                + '<br><span class="dim">esc cancel · chain ' + (rebindCursor + 1)
+                + '/' + REBIND_ACTIONS.length + '</span>';
+            return;
+        }
+        dom.overlayTitle.textContent = optionsFrom === STATE.PAUSED ? 'OPTIONS (PAUSED)' : 'OPTIONS';
+        const rows = OPTIONS_ROWS.map((row, i) => {
+            const mark = optionsCursor === i ? '<b class="sel">&gt; ' : '<span class="dim">  ';
+            const end = optionsCursor === i ? '</b>' : '</span>';
+            let val = '';
+            if (row.type === 'vol') val = formatVol(getSetting(row.key));
+            else if (row.type === 'bool') val = getSetting(row.key) ? 'ON' : 'OFF';
+            else if (row.type === 'enum') val = String(getSetting(row.key) || row.values[0]).toUpperCase();
+            else if (row.type === 'rebind') val = '';
+            return mark + row.label + (val ? '  ' + val : '') + end;
+        }).join('<br>');
+        dom.overlaySub.innerHTML = rows + '<br><br>'
+            + '<span class="dim">&uarr;&darr; move &middot; &larr;&rarr; adjust &middot; fire select</span>';
         return;
     }
     if (state === STATE.TITLE) {
@@ -274,15 +491,22 @@ function renderOverlay() {
         ).join('   ');
         const hi = getScores()[0];
         const haveCodex = unlockedCodex().length > 0;
+        const items = ['LAUNCH', 'OPTIONS'].concat(haveCodex ? ['CODEX'] : []);
+        const menu = items.map((label, i) =>
+            (titleChoice === i ? '<b class="sel">' + label + '</b>' : '<span class="dim">' + label + '</span>')
+        ).join('   ');
         dom.overlaySub.innerHTML =
             'THE LATTICE BREAK<br><br>'
             + '<span class="dim">&larr; difficulty &rarr;</span><br>' + row + '<br><br>'
+            + menu + '<br><br>'
+            + '<span class="dim">council ' + escapeHtml(loadoutLabel(loadSavedLoadout())) + '</span><br>'
             + (hi ? '<span class="dim">HI-SCORE ' + hi.score + '</span><br>' : '')
-            + '<span class="dim">fire / enter to launch'
-            + (haveCodex ? ' &middot; drone key: codex' : '') + '</span>';
+            + '<span class="dim">&uarr;&darr; menu &middot; fire confirm</span>';
     } else if (state === STATE.PAUSED) {
         dom.overlayTitle.textContent = 'PAUSED';
-        dom.overlaySub.innerHTML = '<span class="dim">esc / p to resume</span>';
+        dom.overlaySub.innerHTML =
+            '<span class="dim">esc / p resume &middot; drone key options</span><br>'
+            + '<span class="dim">options mirror title (vol / a11y / rebind / reset)</span>';
     } else if (state === STATE.GAMEOVER) {
         if (stageClear) {
             dom.overlayTitle.textContent = 'STAGE CLEAR';
@@ -444,7 +668,14 @@ function loadLevel(id) {
     world.level = level;
     currentLevelId = id;
     runner = createLevelRunner(level, scene, world);
-    runner.onDialogue = (lineId) => { pushComms(comms, lineId); };
+    runner.onDialogue = (lineId) => {
+        // Boss entries play a short cinematic (GUMOI + boss silhouette) unless
+        // cutscenes are suppressed (authoring ?x= / ?skipcs=1). The verbatim
+        // boss line still shows inside the cutscene, or as a plain comms line
+        // when skipped — so the story text is never lost either way.
+        if (/_boss$/.test(lineId) && !skipCutscenes) playBossCutscene(lineId);
+        else pushComms(comms, lineId);
+    };
     runner.onBoss = (bid) => { pendingBoss = bid; };
     runner.onEnd = () => { levelCleared = true; };
     return runner;
@@ -477,6 +708,7 @@ function startRun(atX = 0, id = null) {
     setScrollX(atX);
     respawnPlayer(player, playerBounds().minX + 4, PLAY_Y);
     player.lives = START_LIVES;
+    equipDrones(world.drones, loadSavedLoadout());
     refreshPerLife(world.drones, player);        // the Ghost's phase charge
     armLevelSystems(world.level);
     playTrack(world.level.music || 'beige');
@@ -487,14 +719,40 @@ function startRun(atX = 0, id = null) {
         setState(STATE.CUTSCENE);
         playCutscene(cutscene, script, {
             setCineCamera, clearCineCamera, getSetting,
-            pushComms: (id) => pushComms(comms, id)
+            pushComms: (id) => pushComms(comms, id),
+            spawnDiorama: (levelId, sx, opts) => createCutsceneDiorama(scene, levelId, sx, opts),
+            disposeDiorama: (d) => disposeDiorama(d, scene)
         }, () => {
             clearCineCamera();
             setState(STATE.PLAYING);
+            maybeQueuePlayTips();
         });
     } else {
         setState(STATE.PLAYING);
+        maybeQueuePlayTips();
     }
+}
+
+/**
+ * S3: boss-entry cutscene. Fired mid-run by the `_boss` dialogue trigger
+ * (~x=300). Entering CUTSCENE pauses the scroll and the director, so the boss
+ * (x=306) can't spawn until we resume PLAYING — the cinematic reads first, then
+ * the natural scroll carries the Vessel into the fight.
+ */
+function playBossCutscene(lineId) {
+    const script = levelBossCutscene(currentLevelId, scrollX);
+    // Honor the exact trigger id (robust if a level ever overrides its line).
+    for (const s of script.shots) if (s.lineId) s.lineId = lineId;
+    setState(STATE.CUTSCENE);
+    playCutscene(cutscene, script, {
+        setCineCamera, clearCineCamera, getSetting,
+        pushComms: (id) => pushComms(comms, id),
+        spawnDiorama: (levelId, sx, opts) => createCutsceneDiorama(scene, levelId, sx, opts),
+        disposeDiorama: (d) => disposeDiorama(d, scene)
+    }, () => {
+        clearCineCamera();
+        setState(STATE.PLAYING);
+    });
 }
 
 function armLevelSystems(level) {
@@ -612,6 +870,7 @@ function tickPlaying(dt) {
     if ((sys.profanity || (world.boss && world.boss.cfg && world.boss.kind === 'boss04'))
         && input.profanityPressed) {
         const cancelled = tryProfanity(profanity, world, player);
+        if (cancelled && sfx.profanity) sfx.profanity();
         if (cancelled) {
             sfx.interrupt();
             sparkHit(cancelled.x, cancelled.y, 0xffe08a);
@@ -780,6 +1039,7 @@ function frame() {
     switch (state) {
         case STATE.TITLE: {
             const d = menuTick();
+            const dy = menuTickY();
             if (codexOpen) {
                 // Browse the codex: left/right through unlocked entries, drone
                 // key or pause closes it.
@@ -794,6 +1054,7 @@ function frame() {
                 consumeAnyKey();
                 break;
             }
+            // Left/right: difficulty. Up/down: title menu (launch / options / codex).
             if (d !== 0) {
                 const i = DIFFICULTIES.indexOf(getSetting('difficulty'));
                 const ni = Math.max(0, Math.min(DIFFICULTIES.length - 1, i + d));
@@ -801,17 +1062,143 @@ function frame() {
                 sfx.uiMove();
                 renderOverlay();
             }
-            if (input.dronePressed && unlockedCodex().length) {
+            const haveCodex = unlockedCodex().length > 0;
+            const titleItems = 2 + (haveCodex ? 1 : 0);
+            if (dy !== 0) {
+                // axisY: +1 is up in stick space for ship; menus treat + as up visually
+                // so invert so "up" moves selection up the list.
+                titleChoice = (titleChoice - dy + titleItems) % titleItems;
+                sfx.uiMove();
+                renderOverlay();
+            }
+            if (input.dronePressed && haveCodex) {
                 codexOpen = true; codexIndex = 0; sfx.uiConfirm(); renderOverlay();
                 consumeAnyKey();
                 break;
             }
             if (confirm) {
-                initAudio();                        // G2: needs a user gesture
+                initAudio();
+                if (titleChoice === 0) {
+                    openLoadout();
+                } else if (titleChoice === 1) {
+                    openOptions(STATE.TITLE);
+                } else {
+                    codexOpen = true; codexIndex = 0; sfx.uiConfirm(); renderOverlay();
+                }
+            }
+            consumeAnyKey();
+            break;
+        }
+
+        case STATE.LOADOUT: {
+            const d = menuTick();
+            const dy = menuTickY();
+            if (input.pausePressed) {
+                sfx.uiBack();
+                setState(STATE.TITLE);
+                break;
+            }
+            if (dy !== 0) {
+                loadoutFocus = (loadoutFocus - dy + MAX_DRONES) % MAX_DRONES;
+                sfx.loadoutTick();
+                renderOverlay();
+            }
+            if (d !== 0) {
+                loadoutSeats = cycleSeat(loadoutSeats, loadoutFocus, d);
+                sfx.loadoutTick();
+                renderOverlay();
+            }
+            if (confirm) applyLoadoutAndLaunch();
+            consumeAnyKey();
+            break;
+        }
+
+        case STATE.TIP: {
+            if (input.pausePressed) {
+                dismissTip(true);
+                sfx.uiBack();
+            } else if (confirm || input.skipPressed) {
+                dismissTip(false);
                 sfx.uiConfirm();
-                // Resume at the furthest level reached (?x= forces a scroll).
-                const id = startAtX > 0 ? currentLevelId : levelToPlay();
-                startRun(startAtX, id);
+            }
+            consumeAnyKey();
+            break;
+        }
+
+        case STATE.OPTIONS: {
+            if (rebindWaiting) {
+                if (input.pausePressed) {
+                    rebindWaiting = null;
+                    rebindConflict = null;
+                    sfx.uiBack();
+                    renderOverlay();
+                    consumeAnyKey();
+                    break;
+                }
+                // Capture next physical key via boot's rebind listener.
+                consumeAnyKey();
+                break;
+            }
+            const d = menuTick();
+            const dy = menuTickY();
+            if (input.pausePressed) {
+                sfx.uiBack();
+                setState(optionsFrom === STATE.PAUSED ? STATE.PAUSED : STATE.TITLE);
+                break;
+            }
+            if (dy !== 0) {
+                optionsCursor = (optionsCursor - dy + OPTIONS_ROWS.length) % OPTIONS_ROWS.length;
+                sfx.uiMove();
+                renderOverlay();
+            }
+            const row = OPTIONS_ROWS[optionsCursor];
+            if (row.type === 'vol' && d !== 0) {
+                const cur = Number(getSetting(row.key)) || 0;
+                const next = Math.max(0, Math.min(1, Math.round((cur + d * 0.1) * 10) / 10));
+                setSetting(row.key, next);
+                sfx.uiMove();
+                renderOverlay();
+            }
+            if (row.type === 'enum' && d !== 0) {
+                const vals = row.values;
+                let i = vals.indexOf(getSetting(row.key));
+                if (i < 0) i = 0;
+                i = (i + d + vals.length) % vals.length;
+                setSetting(row.key, vals[i]);
+                if (row.key === 'quality') setQuality(vals[i]);
+                sfx.uiMove();
+                renderOverlay();
+            }
+            if (confirm || (row.type === 'bool' && d !== 0)) {
+                if (row.type === 'bool') {
+                    setSetting(row.key, !getSetting(row.key));
+                    if (row.key === 'largerHud') applyHudA11y();
+                    sfx.uiConfirm();
+                    renderOverlay();
+                } else if (row.type === 'rebind') {
+                    rebindCursor = 0;
+                    rebindConflict = null;
+                    rebindWaiting = REBIND_ACTIONS[0];
+                    sfx.uiConfirm();
+                    renderOverlay();
+                } else if (row.type === 'reset') {
+                    resetSettingsDefaults();
+                    refreshBindings();
+                    applyHudA11y();
+                    try {
+                        const q = getSetting('quality') || 'high';
+                        setQuality(q);
+                    } catch (e) { /* ignore */ }
+                    sfx.uiConfirm();
+                    renderOverlay();
+                } else if (row.type === 'back') {
+                    sfx.uiBack();
+                    setState(optionsFrom === STATE.PAUSED ? STATE.PAUSED : STATE.TITLE);
+                } else if (row.type === 'vol' && confirm) {
+                    // no-op; volumes use left/right
+                } else if (row.type === 'enum' && confirm) {
+                    // left/right cycles
+                }
             }
             consumeAnyKey();
             break;
@@ -842,6 +1229,7 @@ function frame() {
 
         case STATE.PAUSED:
             if (input.pausePressed) setState(prevState);
+            else if (input.dronePressed) openOptions(STATE.PAUSED);
             break;
 
         case STATE.DEATH:
@@ -987,13 +1375,16 @@ export function boot(domRefs) {
         setState(STATE.DEATH);
     };
     world.onEnemyShot = () => sfx.enemyShoot();
+    world.onWordBullet = () => { if (sfx.wordFire) sfx.wordFire(); };
+    world.onBossPhase = () => { if (sfx.phaseShift) sfx.phaseShift(); };
 
     bulletFx = new BulletRenderer(scene);
     player = createPlayer(scene, world);
     createWitness(scene, world);
     createDrones(scene, world);
     createPickups(scene, world);
-    equipDrones(world.drones, ['prophet', 'needle']);   // default loadout (Phase 9A: loadout screen)
+    loadoutSeats = loadSavedLoadout();
+    equipDrones(world.drones, loadoutSeats);
 
     // Injected so the loop's systems can reach back without import cycles.
     setPulseShake((amp, decay) => shakeCamera(amp, decay));
@@ -1013,9 +1404,18 @@ export function boot(domRefs) {
     //    sync when a settings menu changes them. synth stays dependency-free.
     initMusic(playTone);
     syncVolumes();
+    applyHudA11y();
+    try {
+        const q = getSetting('quality');
+        if (q) setQuality(q);
+    } catch (e) { /* ignore */ }
     onSettingChange((key) => {
         if (key === 'masterVolume' || key === 'sfxVolume' || key === 'musicVolume') syncVolumes();
         if (key === 'reduceHorrorAudio') syncVolumes();
+        if (key === 'largerHud' || key === '*') applyHudA11y();
+        if (key === 'quality') {
+            try { setQuality(getSetting('quality') || 'high'); } catch (e) { /* ignore */ }
+        }
     });
 
     // ── quality tiers (PLAN.md Phase 8): keys 1/2/3 pick a tier, like the
@@ -1030,6 +1430,34 @@ export function boot(domRefs) {
         if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
             if (e.repeat) return;
             noteCtrlTap();
+        }
+
+        // Options rebind capture (full map + conflict warn)
+        if (state === STATE.OPTIONS && rebindWaiting && !e.repeat) {
+            if (e.code === 'Escape') {
+                rebindWaiting = null;
+                rebindConflict = null;
+                sfx.uiBack();
+                renderOverlay();
+                return;
+            }
+            e.preventDefault();
+            const action = rebindWaiting;
+            const custom = Object.assign({}, getSetting('keybindings') || {});
+            const { next, conflict } = proposeRebind(action, e.code, custom);
+            rebindConflict = conflict;
+            setSetting('keybindings', next);
+            refreshBindings();
+            sfx.uiConfirm();
+            rebindCursor = (rebindCursor + 1) % REBIND_ACTIONS.length;
+            if (rebindCursor === 0) {
+                rebindWaiting = null;
+                rebindConflict = null;
+            } else {
+                rebindWaiting = REBIND_ACTIONS[rebindCursor];
+            }
+            renderOverlay();
+            return;
         }
 
         // Dev-only cheats (only while the badge is on)
@@ -1052,6 +1480,8 @@ export function boot(domRefs) {
     startAtX = Math.max(0, Number(params.get('x')) || 0);
     godMode = params.get('god') === '1';
     skipCutscenes = params.get('skipcs') === '1' || params.has('x');
+    // Smoke + authoring: skipcs also skips tips so TITLE→LOADOUT→PLAYING stays one path.
+    skipTips = params.get('skiptips') === '1' || skipCutscenes || params.get('dev') === '1';
     if (params.has('debug')) debugOn = true;
     if (params.get('dev') === '1') setDevMode(true);
     if (godMode && dom.godBadge) dom.godBadge.classList.add('on');
@@ -1076,7 +1506,8 @@ export function boot(domRefs) {
         setDevMode,
         isGodMode: () => godMode,
         setGodMode,
-        toggleGodMode
+        toggleGodMode,
+        getRunner: () => runner
     };
 
     setScrollX(0);
@@ -1092,6 +1523,8 @@ let continueX = 0;
 let startAtX = 0;
 let godMode = false;
 let skipCutscenes = false;
+/** Skip first-run tips (smoke / authoring). Set by ?skiptips=1 or with skipcs. */
+let skipTips = false;
 /** Secret authoring mode: Ctrl × 10 (Windows). God + debug + skip cutscenes. */
 let devMode = false;
 let _ctrlTaps = 0;
@@ -1133,6 +1566,7 @@ export function setDevMode(on) {
         godMode = true;
         debugOn = true;
         skipCutscenes = true;
+        skipTips = true;
         if (dom.devBadge) dom.devBadge.classList.add('on');
         if (dom.godBadge) dom.godBadge.classList.add('on');
         if (world.flashPickup) world.flashPickup('DEV MODE');
@@ -1143,6 +1577,7 @@ export function setDevMode(on) {
         godMode = params.get('god') === '1';
         debugOn = params.has('debug');
         skipCutscenes = params.get('skipcs') === '1' || params.has('x');
+        skipTips = params.get('skiptips') === '1' || skipCutscenes;
         if (dom.devBadge) dom.devBadge.classList.remove('on');
         if (dom.godBadge) dom.godBadge.classList.toggle('on', godMode);
         if (world.flashPickup) world.flashPickup('DEV OFF');

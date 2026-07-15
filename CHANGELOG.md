@@ -5,9 +5,19 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased] — GUMOI: The Lattice Break
 
-The kit becomes a game: a horizontal R-Type III–style shmup built entirely under
-`src/shmup/` + `game.html`, with the engine layer untouched. Story canon from
-`docs/story-bible.html` via `NARRATIVE_PLAN.md`.
+The kit becomes a game: a horizontal R-Type III–style shmup built under
+`src/shmup/` with **`index.html` / `game.html`** as the play entry (engine smoke
+at `kit.html`). Story canon from `docs/story-bible.html` via `NARRATIVE_PLAN.md`.
+
+### Presentation pass
+- Pre-mission **2-slot Council loadout** (persisted) between title and launch.
+- In-game **OPTIONS** (volumes, reduce motion/flash/horror audio, key rebind).
+- L02–L10 **parallax** silhouettes, terrain dressing, and per-level sky tints.
+- **Bespoke boss body shapes** for bosses 02–10.
+- Cutscene **voxel dioramas** (GUMOI bust + stage prop); `reduceMotion` skips them.
+- **Word-bullet sprites** via `makeWordTexture`; expanded SFX + 32-step music.
+- Accessibility: `reduceMotion` suppresses camera shake.
+- README leads with the game; kit smoke relocated to `kit.html`.
 
 ### Added
 - **Phase 0–1** — game shell (title/pause/gameover state machine, main loop),

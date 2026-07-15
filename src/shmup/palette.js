@@ -75,12 +75,12 @@ export const PICKUP_PALETTE = {
     carrierCrystal: 0x40a0ff
 };
 
-/** Bullets (ASSETS_PLAN §5). */
+/** Bullets (ASSETS_PLAN §5). R4: hostile fire always wins contrast audit. */
 export const BULLET_PALETTE = {
-    player: 0x7fe0ff,
-    playerHot: 0xdffaff,   // tier-2/3 Siren Pulse core
+    player: 0x8ef0ff,
+    playerHot: 0xefffff,   // tier-2/3 Siren Pulse core
     hammer: 0xffc46b,      // Hammer Round slugs — copper, reads as "kinetic"
-    enemy: FOE_PALETTE.foeBullet,
-    enemyHeavy: 0xff2a5a,
-    word: 0xe8e0f0         // S7 word-bullets (Level 04)
+    enemy: 0xff48d0,       // hotter magenta — brightest thing on screen
+    enemyHeavy: 0xff2458,
+    word: 0xfff6ff         // S7 word-bullets — near-white so labels read on any sky
 };

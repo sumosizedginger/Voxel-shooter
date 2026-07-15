@@ -5,12 +5,14 @@
 //
 // NARRATIVE_PLAN §3 + §4 S9. The Forge Wraith punishes twitchy play.
 
+import { BALANCE } from '../balance.js';
+
 export const HEAT_MAX = 100;
-export const HEAT_OFFLINE_S = 2.0;
+export const HEAT_OFFLINE_S = BALANCE.heatOfflineS;
 /** Heat gained per direction-change event. */
-export const HEAT_PER_TURN = 9;
+export const HEAT_PER_TURN = BALANCE.heatPerTurn;
 /** Heat decay per second while holding a steady vector. */
-export const HEAT_DECAY = 18;
+export const HEAT_DECAY = BALANCE.heatDecay;
 /** Axis change threshold to count as a turn. */
 const TURN_EPS = 0.55;
 

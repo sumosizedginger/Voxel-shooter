@@ -18,6 +18,8 @@ import { run as runStagelint } from './stagelint.spec.mjs';
 import { run as runComms } from './comms.spec.mjs';
 import { run as runCampaign } from './campaign.spec.mjs';
 import { run as runSystems } from './systems.spec.mjs';
+import { run as runPresentation } from './presentation.spec.mjs';
+import { run as runShipquality } from './shipquality.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -75,6 +77,14 @@ async function main() {
     const systems = createSink('systems');
     runSystems(systems);
     sinks.push(systems);
+
+    const presentation = createSink('presentation');
+    runPresentation(presentation);
+    sinks.push(presentation);
+
+    const shipquality = createSink('shipquality');
+    runShipquality(shipquality);
+    sinks.push(shipquality);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');

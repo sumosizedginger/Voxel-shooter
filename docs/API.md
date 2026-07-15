@@ -291,7 +291,13 @@ See [COMPLETION.md](../COMPLETION.md) and [NARRATIVE_PLAN.md](../NARRATIVE_PLAN.
 | `copybuffer.js` | S5 mimic fire | `fireMimic`, `recordShot`, `clearBuffer` |
 | `modifiers.js` | S6 arena mods | `createModStack`, `pushMod`, `hasMod`, `transformInput`, `screenPushDelta` |
 | `profanity.js` | S7 Profanity Key | `createProfanity`, `tryProfanity`, `updateProfanity` |
-| `words.js` | S7 word effects | `WORD_EFFECTS`, `applyWordHit` (load-bearing); `makeWordTexture` optional visual helper |
+| `words.js` | S7 word effects | `WORD_EFFECTS`, `applyWordHit` (load-bearing); `makeWordTexture` used by `bulletmesh` word sprites |
+| `loadout.js` | Pre-mission Council seats | `normalizeLoadout`, `saveLoadout`, `loadSavedLoadout`, `cycleSeat` |
+| `council.js` | Seat table (import-clean) | `COUNCIL`, `DRONE_TYPES`, `MAX_DRONES` |
+| `level/stagecraft.js` | L02–10 stage feel | `buildStageTerrain`, `parallaxLayers`, `skyForLevel` |
+| `assets/parallax.js` | Theme silhouettes | `parallaxForLevel`, per-theme builders |
+| `assets/bossBodies.js` | Boss 02–10 shapes | `buildBossBody`, `BOSS_BODY_BUILDERS` |
+| `assets/diorama.js` | Cutscene props | `createCutsceneDiorama`, `disposeDiorama` |
 | `inputrec.js` | S8 recorder | `createRecorder`, `recordFrame`, `sampleAt` |
 | `heat.js` | L7 heat meter | `createHeat`, `updateHeat`, `heatWeaponsOffline` |
 | `predictor.js` | S9 motion class | `createPredictor`, `recordMotion`, `interceptAngle` |

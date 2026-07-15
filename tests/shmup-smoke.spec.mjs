@@ -39,18 +39,24 @@ export async function run(t) {
 
         // skipcs=1 skips the S3 opening cutscene so the smoke test lands in PLAYING
         // immediately (cutscenes are covered by systems.spec + manual play).
-        await page.goto(server.url + 'game.html?skipcs=1', { waitUntil: 'networkidle0', timeout: 60000 });
+        // index.html is the promoted game entry; game.html remains a twin.
+        await page.goto(server.url + 'index.html?skipcs=1&skiptips=1', { waitUntil: 'networkidle0', timeout: 60000 });
         await sleep(500);
 
         // Title screen is up and drawing.
         const atTitle = await page.evaluate(() => window.__gumoi && window.__gumoi.getState());
-        t.ok('game.html boots to the TITLE state', atTitle === 'TITLE', 'state=' + atTitle);
+        t.ok('index.html (game) boots to the TITLE state', atTitle === 'TITLE', 'state=' + atTitle);
 
-        // Start a game with synthetic input (the fire key), then play ~2.5s.
+        // Title → LAUNCH opens the pre-mission Council loadout; second fire launches.
+        await page.keyboard.press('KeyZ');
+        await sleep(350);
+        const atLoadout = await page.evaluate(() => window.__gumoi && window.__gumoi.getState());
+        t.ok('fire opens LOADOUT screen', atLoadout === 'LOADOUT', 'state=' + atLoadout);
+
         await page.keyboard.press('KeyZ');
         await sleep(400);
         const playing = await page.evaluate(() => window.__gumoi.getState());
-        t.ok('fire launches into PLAYING (or brief CUTSCENE)',
+        t.ok('loadout confirm launches into PLAYING (or brief CUTSCENE)',
             playing === 'PLAYING' || playing === 'CUTSCENE', 'state=' + playing);
         // If a cutscene still started, skip it.
         if (playing === 'CUTSCENE') {
@@ -68,7 +74,7 @@ export async function run(t) {
         await page.keyboard.up('KeyZ');
         await page.keyboard.up('ArrowUp');
 
-        t.ok('game.html: zero console/page errors', errors.length === 0, errors.join(' | '));
+        t.ok('game entry: zero console/page errors', errors.length === 0, errors.join(' | '));
 
         const info = await page.evaluate(() => {
             const k = window.__engineKit;
@@ -77,16 +83,16 @@ export async function run(t) {
                     hasPlayer: !!window.__gumoi.world.player }
                 : null;
         });
-        t.ok('game.html: renderer drew frames', info && info.calls > 0,
+        t.ok('game entry: renderer drew frames', info && info.calls > 0,
             'render.calls=' + (info ? info.calls : 'null'));
-        t.ok('game.html: still PLAYING after 2.5s', info && info.state === 'PLAYING',
+        t.ok('game entry: still PLAYING after 2.5s', info && info.state === 'PLAYING',
             'state=' + (info ? info.state : 'null'));
-        t.ok('game.html: the Vessel exists', info && info.hasPlayer);
+        t.ok('game entry: the Vessel exists', info && info.hasPlayer);
 
         const canvasOk = await page.evaluate(() => !!document.querySelector('canvas'));
-        t.ok('game.html: canvas present', canvasOk);
+        t.ok('game entry: canvas present', canvasOk);
     } catch (e) {
-        t.ok('game.html: loaded and played without crashing', false, String(e && e.message || e));
+        t.ok('game entry: loaded and played without crashing', false, String(e && e.message || e));
     } finally {
         if (browser) await browser.close();
         await server.close();

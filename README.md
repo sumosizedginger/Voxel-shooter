@@ -1,217 +1,97 @@
-# Voxel Engine Kit
+# GUMOI: The Lattice Break
 
 [![tests](https://github.com/sumosizedginger/My-Engine/actions/workflows/test.yml/badge.svg)](https://github.com/sumosizedginger/My-Engine/actions/workflows/test.yml)
 
-A zero-build, offline-first three.js voxel engine layer: a renderer with an HDR
-bloom/vignette/film composer, voxel meshing with baked ambient occlusion,
-character-part builders, particle and motion-smear FX, a WebAudio synth,
-localStorage-backed settings, quality tiers, and two genre-neutral combat
-primitives — swept AABB collision and a vectorized (8-way) hitbox. Drop it into
-a new project and you have a running, good-looking voxel sandbox on day one —
-then build *your* game (shmup, top-down adventure, brawler, whatever) on top.
+A horizontal-scrolling **R-Type III–style shmup** built on a zero-build, offline
+three.js voxel engine kit. The witness goes to war; the Council is the arsenal;
+the seal is the target.
 
-This is a starting point, not a framework. Copy it, rename it, hack it.
+**Play:** `npm run serve` → open [http://localhost:8799/](http://localhost:8799/)
+(`index.html`). `game.html` is the same entry for bookmarks.
 
-## See it
+Story canon: [docs/story-bible.html](docs/story-bible.html). Build authority:
+[PLAN.md](PLAN.md), [NARRATIVE_PLAN.md](NARRATIVE_PLAN.md), [COMPLETION.md](COMPLETION.md).
 
-| Smoke test (`index.html`) | Top-down example | Voxel showcase |
-|---|---|---|
-| [![smoke test](docs/media/smoke.png)](index.html) | [![top-down example](docs/media/topdown.png)](examples/topdown-8way.html) | [![voxel showcase](docs/media/showcase.png)](examples/voxel-showcase.html) |
+## The game
 
-## The game: GUMOI — The Lattice Break
+- **The Vessel** — a tiny hit circle in a big ship; kintsugi scars brighten as
+  hull integrity falls (that *is* the damage bar). Collisions are lethal; enemy
+  fire chips.
+- **The arsenal is the Council** — three-tier **Siren Pulse**, **Hammer Round**,
+  the **Witness** force unit, six **Council drones** chosen on a **pre-mission
+  2-slot loadout** screen, and **Whisper Bits**.
+- **Ten-level campaign** — Beige Slope → Corrupted Seal → the BETWEEN ending.
+  Per-level systems: mimic copy, arena modifiers, Profanity Key (**F**), delayed
+  shadow, heat meter, asymmetry scorer, temporal fold.
+- **Presentation** — theme parallax + terrain dressing on every stage, bespoke
+  boss silhouettes (02–10), cutscene voxel dioramas (GUMOI bust + stage prop),
+  readable word-bullet sprites, 48-step ABC music phrases, options/a11y/rebind UI.
 
-Built on top of the kit: a horizontal-scrolling R-Type III–style shmup. The
-witness goes to war; the Council is the arsenal; the seal is the target. Play
-it at [`game.html`](game.html) (`npm run serve`, then open
-http://localhost:8799/game.html).
+### Controls
 
-- **The Vessel** — a tiny hit circle in a big ship; her kintsugi scars brighten
-  as hull integrity falls (that *is* the damage bar). Collisions are lethal;
-  enemy fire chips.
-- **The arsenal is the Council** — the three-tier **Siren Pulse** (tier 3 needs
-  the Witness at level 2 and roots you 1.4s), the **Hammer Round** (close
-  spread / long slug, three slugs stagger a boss), the **Witness** force unit
-  (four docks + orbit, absorb/reflect, three shard-levels, Mirror Counter), six
-  **Council drones** (two slots, pre-mission loadout), and **Whisper Bits**.
-- **Ten-level campaign** — from The Beige Slope through The Corrupted Seal and
-  the BETWEEN ending. Per-level signature systems (mimic copy, arena modifiers,
-  Profanity Key **F**, delayed shadow, heat meter, asymmetry scorer, temporal
-  fold) documented in [COMPLETION.md](COMPLETION.md).
-- **Level 01, The Beige Slope** — teaches cast/interrupt: cut off an announced
-  emotion to open a violet weakpoint (live on trash elites and Boss 01 mouths).
-- Checkpoint rewind, full HUD, difficulty select, continue, cockpit comms, cine
-  opening cutscenes, and a codex — story text verbatim from the
-  [story bible](docs/story-bible.html).
+| Action | Default keys |
+|--------|----------------|
+| Move | WASD / arrows |
+| Fire | Z / J / Space |
+| Witness dock | X / K (double-tap = Mirror Counter) |
+| Weapon swap | C / L |
+| Council drone | V / H |
+| Profanity Key | **F** (L4 word-bullets) |
+| God mode | **G** (score not recorded) |
+| Pause | Esc / P |
+| Title | fire → **LAUNCH** (loadout) / **OPTIONS** / codex |
+| Options | volumes, quality, a11y (motion/flash/HUD/shake/hold-fire), rebind, reset |
 
-Authoring/debug:
+Authoring:
 
 | Key / URL | Effect |
 |-----------|--------|
-| **`G`** | Toggle **god mode** (invincible; score not recorded; corner badge) |
-| `` ` `` (backquote) | Toggle debug overlay |
-| **`F`** | Profanity Key (L4 word-bullets only) |
-| **1 / 2 / 3** | Quality tiers (low / high / ultra) |
-| `?god=1` | Start with god mode on |
+| `` ` `` | Debug overlay |
+| **1 / 2 / 3** | Quality low / high / ultra |
+| `?god=1` | Start with god mode |
 | `?skipcs=1` | Skip opening cutscenes |
-| `?x=<scrollX>` | Start scrolled in (also skips cutscenes) |
-| `?dev=1` | Start in full dev mode |
+| `?x=<scrollX>` | Start scrolled in |
+| `?dev=1` | Full dev mode |
+| Ctrl ×10 | Toggle dev mode (god + debug + skipcs; Shift+1…0 level jump) |
 
-**Secret dev mode:** tap **Ctrl** ten times (either side; gaps &gt; 2.5 s reset
-the count). Toggles god + debug + cutscene skip with a center watermark.
-While active: **Shift+1…0** jump to levels 1–10. Ctrl×10 again to leave.
-
-All game code lives under `src/shmup/` + `game.html`; the kit's `src/engine/`,
-`src/voxel/`, `src/combat/`, and `src/audio/` are untouched.
+All game code lives under `src/shmup/` + `index.html` / `game.html`. The kit's
+`src/engine/`, `src/voxel/`, `src/combat/`, and `src/audio/` stay frozen unless
+PLAN.md says otherwise.
 
 ## Boot it
 
 ```
-npm run serve      # node scripts/serve.mjs 8799 — a zero-dep static server
+npm run serve      # node scripts/serve.mjs 8799
 # open http://localhost:8799
 ```
 
-`three` r185 is vendored under `lib/three/` (ES modules + a hand-traced subset of
-the postprocessing addons), so it runs with no network and no bundler. The import
-map in `index.html` wires `import * as THREE from 'three'`. `npm i` is only needed
-if you want your editor to resolve three's types.
+`three` r185 is vendored under `lib/three/` (ES modules). No bundler, no
+runtime npm deps for play.
 
-`index.html` is a smoke test: it boots the renderer, builds a voxel figure from
-the voxel pipeline, and live-proves the vectorized hitbox and the collision
-module in an on-screen panel. If that page renders, the kit is healthy.
+## Engine kit (still here)
 
-## What's in the box
+The underlying voxel engine kit remains available:
 
-| Area | Files | Notes |
-|------|-------|-------|
-| Render pipeline | `engine/renderer.js`, `lights.js`, `environment.js`, `quality.js`, `skybox.js`, `textures.js` | three.js scene + camera, HDR bloom / vignette / film / RGB-shift composer, shadow lights, IBL environment, quality tiers, procedural skybox + textures. |
-| Voxel art | `voxel/core.js`, `voxel/helpers.js`, `voxel/palette.js` | `buildVoxelGeo(map)` bakes a voxel `Map` into one geometry with AO; `fillBox`/`fillEllipsoid`/`paint` author the map. |
-| Character builders | `characters/builders.js` | `buildTorso`/`buildHead`/`buildArm`/`buildLeg`/`buildGlowEyes` — voxel humanoid parts you assemble into a rig. |
-| FX | `engine/particles.js`, `engine/smear.js` | Instanced dust/petal/spark pools; motion-smear arcs for weapon/limb swings. |
-| Audio | `audio/synth.js` | WebAudio synth: `initAudio`, `playTone`, `playNoise`, `sfx`, `setVolumes`. |
-| Persistence / settings | `engine/settings.js` | localStorage-backed settings, progress, high scores, difficulty multipliers, change events. Degrades gracefully with no storage. |
-| **Collision** | `engine/collision.js` | Genre-neutral AABB solids on the XZ ground plane, swept + axis-separated so movers slide along walls and never tunnel. **New** — see below. |
-| **Vectorized hitbox** | `combat/hitbox.js`, `combat/facing.js` | Dot-product reach cone that follows a facing **vector**, plus a tiny facing helper so you get 8-way aim without a combat state machine. **New** — see below. |
-| Shared handle | `context.js` | The empty `world` object every module reads (`world.collision`, `world.particles`, …). Your game populates it. |
+| Kit smoke | Top-down example | Voxel showcase |
+|---|---|---|
+| [`kit.html`](kit.html) | [`examples/topdown-8way.html`](examples/topdown-8way.html) | [`examples/voxel-showcase.html`](examples/voxel-showcase.html) |
 
-### Not included (they were game-specific)
+`kit.html` boots the renderer, builds a voxel figure, and proves hitbox +
+collision in an on-screen panel. If that page renders, the kit is healthy.
 
-The brawler's combat state machine, factory, bosses, levels, waves, narrative
-director, and HUD live in the game repo, not here — they encode belt-scroller
-rules. `combat/hitbox.js` + `combat/facing.js` are the reusable seed of a combat
-layer; grow your own on top.
+## Tests
 
-## The two combat primitives, and why they're here
-
-### Vectorized hitbox (`combat/hitbox.js` + `combat/facing.js`)
-
-`hitboxCheck(attacker, defender, move)` tests reach in the attacker's **facing
-frame**: it projects the attacker→defender offset onto the facing direction
-(`forward`, the reach toward the enemy) and across it (`lateral`, the "lane" gap),
-then checks `move.range` / `move.depthTolerance` / `move.vertical`.
-
-Facing is a **unit vector in XZ** (`attacker.state.facingVec`). When that vector is
-axis-aligned (`±1` on X, as in a belt-scroller) the math is *numerically identical*
-to a classic X-signed cone — so a side-scroller pays nothing. Feed a real Z
-component and the whole cone turns with it: that's free 8-way / top-down aiming.
-
-`combat/facing.js` gives you that vector without any of the game's combat code:
-
-```js
-import { makeFacing } from './src/combat/facing.js';
-import { hitboxCheck } from './src/combat/hitbox.js';
-
-const player = { root, state: makeFacing(1) };
-player.state.setFacing(inputX, inputZ);   // 8-way aim from stick / WASD
-// player.state.setFacing8(inputX, inputZ) to snap to 8 compass directions
-// player.state.facing = -1;               // or stay pure belt-scroller
-
-if (hitboxCheck(player, enemy, { range: 1.6, depthTolerance: 0.9, vertical: 1.2 })) {
-    // land the hit
-}
+```
+npm test           # unit + browser smokes (needs Chrome/Edge; CHROME_PATH ok)
+npm run test:unit  # pure-node only
 ```
 
-`move` fields, all in **world units**: `range` (forward reach), `depthTolerance`
-(lateral tolerance), `vertical` (Y tolerance), and optional `omni: true` for a
-radial sweep (spin attacks). `defender.hitRadius` widens every window by the
-target's body size.
+New specs: `tests/*.spec.mjs`, registered in `tests/run-all.mjs`, using
+`createSink` from `tests/harness.mjs`.
 
-### AABB collision (`engine/collision.js`)
+## Docs
 
-```js
-import { CollisionWorld } from './src/engine/collision.js';
-
-const cw = new CollisionWorld();          // wire it to world.collision if you use the world handle
-cw.addSolid({ minX: 2, maxX: 3, minZ: -5, maxZ: 5 });   // a wall; returns an id
-const next = cw.resolveMove(px, pz, desiredX, desiredZ, halfExtent);
-entity.x = next.x; entity.z = next.z;     // slides along solids, won't tunnel
-cw.removeSolid(id);                        // e.g. when a crate is destroyed
-```
-
-Empty world ⇒ every `resolveMove` is a pass-through, so adding it changes nothing
-until you register geometry. Solids are static ground-plane boxes; movers are
-squares of `halfExtent`. Movement resolves X then Z (wall-slide) and is swept on
-each axis so one fast step can't jump through a thin wall.
-
-## Wiring a new game
-
-1. Import `scene`, `camera`, `composer` from `engine/renderer.js`; call
-   `initLights()`; add your content to `scene`; run a loop that calls
-   `composer.render()` each frame. (`index.html` is the 60-line version of this.)
-2. The camera in `renderer.js` is set up for a **locked 2.5D side view**
-   (`updateCamera`, `lockedTraverseBoundsX`, etc.). For a top-down or free-roam
-   game, replace that block — it's the most side-scroller-specific file here.
-3. Populate the shared `world` handle (`context.js`) with whatever your systems
-   read: `world.collision = new CollisionWorld()`, `world.particles = new
-   ParticleSystem(scene)`, `world.characters = []`.
-4. Build characters from `characters/builders.js`, or author bespoke voxel meshes
-   with the `voxel/` helpers.
-5. Give each attacker a facing (`makeFacing`) and use `hitboxCheck` for melee, or
-   grow your own projectile system for a shmup.
-
-## Examples
-
-Two tiny, self-contained pages (kit APIs only, no bundler — open them straight
-off `npm run serve`) that prove the "genre-neutral" claim above isn't just talk:
-
-- **[examples/topdown-8way.html](examples/topdown-8way.html)** — the camera
-  block replaced for a top-down follow, a voxel hero built from
-  `characters/builders.js`, WASD 8-way movement via `setFacing`, a melee arc
-  via `hitboxCheck` against three dummy targets, and `CollisionWorld` walls the
-  hero slides along. The Zelda-like porting note, made real.
-- **[examples/voxel-showcase.html](examples/voxel-showcase.html)** — a rotating
-  gallery of six bespoke voxel builds (ship, crystal, mushroom, robot head,
-  tree, turret) authored purely with `fillBox` / `fillEllipsoid` / `paint`,
-  bloom picking out the glowing bits, quality tiers live-switchable on
-  <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd>. The shmup porting note's proof.
-
-## Documentation
-
-**[docs/API.md](docs/API.md)** is the full reference — every export in `src/`,
-with signatures, units, and the honest gotchas (a couple of modules reference
-texture assets the kit doesn't ship; API.md says exactly which). It also spells
-out the `world` contract: the one implicit coupling point worth knowing about
-before you wire a new game in.
-
-## Porting notes (from the honest assessment)
-
-- **R-Type-style shmup**: keep the renderer, voxel pipeline, FX, audio, UI, and
-  collision; the melee cone doesn't apply — build a bullet pool instead. The
-  biggest transplant is the *shape* of a multi-phase boss state machine (rewrite
-  the contents). Voxel **ships** come out of `voxel/` beautifully.
-- **Top-down adventure (Zelda-like)**: this is exactly why facing was vectorized.
-  Flip your entities to `setFacing(x, z)` (8-way) and `hitboxCheck` already turns
-  the sword arc with you; `collision.js` is the wall/obstacle layer such a game
-  lives on. You still owe the big content system — rooms, items-as-progression,
-  puzzles — none of which is here.
-
-## Built with this kit
-
-**[Neon Rot: Unbound](https://github.com/sumosizedginger/neon-rot-unbound)** — a
-synthwave-horror voxel beat-'em-up with 3 playable heroes, 11 levels/bosses, and 3
-endings — is where this kit's vectorized hitbox and collision module were first
-proven, running real belt-scroller combat with `facingVec` pinned to `±X`. The
-repo is private while the game is in development; a public build (GitHub Pages /
-itch.io) is planned, and this link will go live then.
-
-MIT licensed (see `LICENSE`). Vendored three.js keeps its own MIT license under
-`lib/three/`.
+- [PLAN.md](PLAN.md) — phase-ordered build plan
+- [COMPLETION.md](COMPLETION.md) — systems + presentation pass notes
+- [docs/API.md](docs/API.md) — module surface
+- [SHIP_PLAN.md](SHIP_PLAN.md) / [ASSETS_PLAN.md](ASSETS_PLAN.md) / [LEVELS_PLAN.md](LEVELS_PLAN.md)

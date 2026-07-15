@@ -6,8 +6,6 @@
 
 import * as THREE from 'three';
 import { buildVoxelGeo } from '../../voxel/core.js';
-import { fillEllipsoid, fillBox, paint } from '../../voxel/helpers.js';
-import { hash3 } from '../../voxel/core.js';
 import { difficultyMultipliers } from '../../engine/settings.js';
 import { KIND, spawn } from '../bullets.js';
 import { explode, ring } from '../fx.js';
@@ -19,15 +17,8 @@ import { interceptAngle } from '../systems/predictor.js';
 import { pushMod } from '../systems/modifiers.js';
 import { startTemporal, stopTemporal } from '../systems/temporal.js';
 import { symmetryRegen } from '../systems/asymmetry.js';
-
-function buildBodyMap(pal) {
-    const m = new Map();
-    fillEllipsoid(m, 0, 0, 0, 9, 11, 5, pal.body);
-    fillEllipsoid(m, 2, 0, 0, 6, 8, 4, pal.bodyDark);
-    fillBox(m, -9, 2, -2, 2, -4, 4, pal.shell);
-    paint(m, (x, y, z, c) => (hash3(x, y, z) > 0.85 ? pal.shell : (hash3(z, x, y) < 0.1 ? pal.bodyDark : null)));
-    return m;
-}
+import { buildBossBody } from '../assets/bossBodies.js';
+import { BALANCE } from '../balance.js';
 
 export function createGenericBoss(scene, world, cfg) {
     const diff = difficultyMultipliers();
@@ -35,12 +26,22 @@ export function createGenericBoss(scene, world, cfg) {
     scene.add(group);
 
     const pal = cfg.palette;
-    const bodyGeo = buildVoxelGeo(buildBodyMap(pal));
+    const bodyGeo = buildVoxelGeo(buildBossBody(cfg.shape || 'default', pal));
     bodyGeo.center();
     const body = new THREE.Mesh(bodyGeo,
         new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0.15 }));
     body.scale.setScalar(cfg.scale || 0.22);
     group.add(body);
+
+    // Telegraph ring (emissive disc) — hidden until pre-fire windup.
+    const telGeo = new THREE.RingGeometry(0.55, 0.85, 24);
+    const telMat = new THREE.MeshBasicMaterial({
+        color: pal.spark || 0xffffff, transparent: true, opacity: 0, side: THREE.DoubleSide, toneMapped: false
+    });
+    const telRing = new THREE.Mesh(telGeo, telMat);
+    telRing.rotation.x = Math.PI / 2;
+    telRing.visible = false;
+    group.add(telRing);
 
     const frontX = world.scrollX + (cfg.standoff || 14);
 
@@ -50,21 +51,27 @@ export function createGenericBoss(scene, world, cfg) {
         hp: Math.round(cfg.hp * diff.enemyHp),
         maxHp: Math.round(cfg.hp * diff.enemyHp),
         frontX,
+        baseFrontX: frontX,
+        bodyY: PLAY_Y,
         dead: false, dying: 0,
         _t: 0,
         _phaseIndex: 0,
         _phaseT: 0,
         group, body,
+        telRing, telMat,
         cores: [],
         mouths: [],
         fireT: 0,
+        teleT: 0,           // >0 while telegraphing before a volley
         mem: [],
         phases: cfg.phases,
         name: cfg.name,
         world,
         hardFailAt: cfg.hardFailAt || 0,   // L3 90s integration
         timeoutAt: cfg.timeoutAt || 0,     // L6 180s
-        integrated: false
+        integrated: false,
+        motion: cfg.motion || 'bob',
+        telegraph: cfg.telegraph || 'shell'
     };
 
     const coreLayout = cfg.cores || [{ dx: -1.2, dy: 0, r: 0.8 }];
@@ -102,7 +109,12 @@ function enterPhase(boss, i) {
     boss.fireT = 0;
     const ph = boss.phases[i];
     if (ph && ph.onEnter) ph.onEnter(boss, boss.world);
-    if (i > 0) { sfx.cast(); ring(boss.frontX - 2, PLAY_Y, 4, VIOLET); }
+    if (i > 0) {
+        sfx.cast();
+        if (sfx.phaseShift) sfx.phaseShift();
+        ring(boss.frontX - 2, PLAY_Y, 4, VIOLET);
+        if (boss.world && boss.world.onBossPhase) boss.world.onBossPhase(boss, i);
+    }
 
     // S6: Jester phases push arena modifiers.
     if (ph && ph.mod && boss.world.mods) {
@@ -114,10 +126,18 @@ function enterPhase(boss, i) {
     }
 }
 
+/** Phase dmgMult multiplies OUTGOING bullet damage only (never damage taken). */
+function phaseDmg(boss, base) {
+    const ph = currentPhase(boss);
+    const mult = (ph && ph.dmgMult) || 1;
+    return (base || 6) * mult;
+}
+
 const FIRE = {
     aimed(boss, world, p, ph) {
+        const by = boss.bodyY || PLAY_Y;
         const a = (world.predictor && p)
-            ? interceptAngle(world.predictor, boss.frontX - 1, PLAY_Y, p, ph.speed || 9)
+            ? interceptAngle(world.predictor, boss.frontX - 1, by, p, ph.speed || 9)
             : angleTo(boss, p);
         emit(boss, world, a, ph.speed || 9, ph.dmg || 6);
     },
@@ -148,11 +168,12 @@ const FIRE = {
     },
     wall(boss, world, p, ph) {
         const rows = ph.rows || 6;
+        const dmg = phaseDmg(boss, ph.dmg || 5);
         for (let i = 0; i < rows; i++) {
             const y = PLAY_MIN_Y + 1 + (i / Math.max(1, rows - 1)) * (PLAY_MAX_Y - PLAY_MIN_Y - 2);
             spawn(world.enemyBullets, {
                 x: boss.frontX - 1, y, vx: -(ph.speed || 4), vy: 0,
-                r: 0.22, dmg: ph.dmg || 5, kind: KIND.ENEMY_HEAVY, hitsTerrain: false
+                r: 0.22, dmg, kind: KIND.ENEMY_HEAVY, hitsTerrain: false
             });
         }
     },
@@ -160,33 +181,37 @@ const FIRE = {
         const words = ph.words || ['DELVE', 'TAPESTRY', 'REALM', 'ROBUST', 'LEVERAGE', 'SYNERGY', 'SEAMLESS'];
         const word = words[(Math.random() * words.length) | 0];
         const a = angleTo(boss, p);
+        const by = boss.bodyY || PLAY_Y;
         const b = spawn(world.enemyBullets, {
-            x: boss.frontX - 1, y: PLAY_Y + (Math.random() - 0.5) * 6,
+            x: boss.frontX - 1, y: by + (Math.random() - 0.5) * 6,
             vx: Math.cos(a) * (ph.speed || 6), vy: Math.sin(a) * (ph.speed || 6),
-            r: 0.35, dmg: ph.dmg || 4, kind: KIND.WORD, hitsTerrain: false,
+            r: 0.35, dmg: phaseDmg(boss, ph.dmg || 4), kind: KIND.WORD, hitsTerrain: false,
             word, onlyProfanity: true, heals: word === 'ROBUST', bossShot: true
         });
         if (b && world.onWordBullet) world.onWordBullet(b);
     },
     symmetric(boss, world, p, ph) {
+        const dmg = phaseDmg(boss, ph.dmg || 4);
         for (let r = 0; r < 3; r++) {
             for (let c = 0; c < 4; c++) {
                 const y = PLAY_Y + (r - 1) * 3;
                 spawn(world.enemyBullets, {
                     x: boss.frontX - 1, y,
                     vx: -(ph.speed || 6), vy: (c - 1.5) * 0.6,
-                    r: 0.2, dmg: ph.dmg || 4, kind: KIND.ENEMY_HEAVY, hitsTerrain: false
+                    r: 0.2, dmg, kind: KIND.ENEMY_HEAVY, hitsTerrain: false
                 });
             }
         }
     },
     // S5/S8/S9 mirror: fire back lastShot or remembered velocity.
     mirror(boss, world, p, ph) {
+        const by = boss.bodyY || PLAY_Y;
+        const dmg = phaseDmg(boss, ph.dmg || 6);
         const last = p && p.lastShot;
         if (last) {
-            fireMimic(world, boss.frontX - 1, PLAY_Y, last, {
+            fireMimic(world, boss.frontX - 1, by, last, {
                 scale: ph.scale || 1.5,
-                dmg: ph.dmg || 6
+                dmg
             });
             return;
         }
@@ -201,7 +226,8 @@ const FIRE = {
     // Predict intercept volley (Forge).
     predict(boss, world, p, ph) {
         if (!p) return;
-        const a = interceptAngle(world.predictor, boss.frontX - 1, PLAY_Y, p, ph.speed || 10);
+        const by = boss.bodyY || PLAY_Y;
+        const a = interceptAngle(world.predictor, boss.frontX - 1, by, p, ph.speed || 10);
         const n = ph.count || 3;
         for (let i = 0; i < n; i++) {
             emit(boss, world, a + (i - (n - 1) / 2) * 0.12, ph.speed || 10, ph.dmg || 6);
@@ -216,12 +242,14 @@ const FIRE = {
 };
 
 function angleTo(boss, p) {
-    return p ? Math.atan2(p.y - PLAY_Y, p.x - boss.frontX) : Math.PI;
+    const by = boss.bodyY || PLAY_Y;
+    return p ? Math.atan2(p.y - by, p.x - boss.frontX) : Math.PI;
 }
 function emit(boss, world, a, speed, dmg, kind = KIND.ENEMY_ORB) {
+    const by = boss.bodyY || PLAY_Y;
     const b = spawn(world.enemyBullets, {
-        x: boss.frontX - 1, y: PLAY_Y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
-        r: 0.16, dmg, kind, hitsTerrain: false
+        x: boss.frontX - 1, y: by, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed,
+        r: 0.16, dmg: phaseDmg(boss, dmg), kind, hitsTerrain: false
     });
     if (b && world.temporal && world.temporal.active && world.recordTemporalBullet) {
         world.recordTemporalBullet(b);
@@ -242,9 +270,11 @@ export function hitCore(core, dmg, world) {
     }
     let applied = dmg;
     if (core.weakpointT > 0) applied *= 3;
-    // L8: asymmetry damage mult.
+    // L8: asymmetry damage mult (player → boss only).
     if (world.damageMult) applied *= world.damageMult();
-    boss.hp -= applied * (currentPhase(boss).dmgMult || 1);
+    // dmgMult on a phase multiplies OUTGOING boss bullet damage (see emit/FIRE),
+    // never damage taken — late phases must not die faster from a miswired mult.
+    boss.hp -= applied;
     sfx.hit();
     if (boss.hp <= 0) beginDeath(boss, world);
 }
@@ -324,29 +354,50 @@ export function updateGenericBoss(boss, dt, world) {
         }
     }
 
-    boss.fireT -= dt;
-    if (boss.fireT <= 0 && ph) {
-        boss.fireT = ph.every || 1.6;
-        const fn = FIRE[ph.fire || 'aimed'];
-        if (fn) fn(boss, world, world.player, ph);
+    // Fire cadence with readable telegraph windup (skip for fire:'none').
+    const fireKind = ph && (ph.fire || 'aimed');
+    if (fireKind !== 'none') {
+        if (boss.teleT > 0) {
+            boss.teleT -= dt;
+            updateTelegraphVisual(boss, 1 - Math.max(0, boss.teleT) / (BALANCE.bossTelegraphS || 0.42));
+            if (boss.teleT <= 0) {
+                hideTelegraph(boss);
+                const fn = FIRE[fireKind];
+                if (fn) fn(boss, world, world.player, ph);
+                if (sfx.bossVolley) sfx.bossVolley();
+                boss.fireT = (ph && ph.every) || 1.6;
+            }
+        } else {
+            boss.fireT -= dt;
+            if (boss.fireT <= 0 && ph) {
+                // Start telegraph; volley fires when teleT hits 0.
+                const tel = BALANCE.bossTelegraphS || 0.42;
+                // Cap telegraph so very fast phases still have room to fire.
+                const every = ph.every || 1.6;
+                boss.teleT = Math.min(tel, Math.max(0.18, every * 0.35));
+                beginTelegraph(boss);
+            }
+        }
     }
 
-    // Cast-gated cores (L6).
+    // Cast-gated cores (L6) — scar open is its own "telegraph".
     if (boss.cfg.coreAlwaysOpen === false) {
         const cyc = boss.cfg.castCycle || 3;
         const open = (boss._t % cyc) < (boss.cfg.castOpen || 0.6);
+        const wasOpen = boss.cores[0] && boss.cores[0].open;
         for (const c of boss.cores) c.open = open;
+        if (open && !wasOpen) {
+            ring(boss.frontX - 1, boss.bodyY || PLAY_Y, 2.2, VIOLET);
+            if (sfx.scarOpen) sfx.scarOpen();
+        }
     }
 
+    applyBossMotion(boss, dt, world);
     updateCoreMeshes(boss, dt);
 
-    boss.body.position.set(boss.frontX, PLAY_Y, 0);
-    const breath = 1 + Math.sin(boss._t * 1.5) * 0.03;
-    const sc = boss.cfg.scale || 0.22;
-    boss.body.scale.set(sc, sc * breath, sc);
-
     const p = world.player;
-    if (p && p.alive && p.invuln <= 0 && Math.abs(p.x - boss.frontX) < 1.6 && Math.abs(p.y - PLAY_Y) < 2.2) {
+    const by = boss.bodyY || PLAY_Y;
+    if (p && p.alive && p.invuln <= 0 && Math.abs(p.x - boss.frontX) < 1.6 && Math.abs(p.y - by) < 2.2) {
         if (boss.cfg.noContactKill) {
             // L6: soft push, not death — the sun holds you, it does not kill you.
             p.x = Math.min(p.x, boss.frontX - 1.7);
@@ -356,10 +407,96 @@ export function updateGenericBoss(boss, dt, world) {
     }
 }
 
+/** Signature body motion per boss — keeps Boss 01 as the quality bar for set-pieces. */
+function applyBossMotion(boss, dt, world) {
+    const t = boss._t;
+    const mode = boss.motion || 'bob';
+    let y = PLAY_Y;
+    let xOff = 0;
+    let rotZ = 0;
+    let breath = 1 + Math.sin(t * 1.5) * 0.03;
+
+    if (mode === 'weave') {
+        y = PLAY_Y + Math.sin(t * 1.1) * 1.6;
+        xOff = Math.sin(t * 0.7) * 0.35;
+    } else if (mode === 'lunge') {
+        // Periodic forward lunge then settle — telegraph of aggression.
+        const cycle = (t % 3.2);
+        const lunge = cycle < 0.55 ? Math.sin((cycle / 0.55) * Math.PI) * 1.4 : 0;
+        xOff = -lunge;
+        y = PLAY_Y + Math.sin(t * 0.9) * 0.9;
+        rotZ = -lunge * 0.08;
+    } else if (mode === 'pulse' || mode === 'breathe') {
+        breath = 1 + Math.sin(t * 2.2) * 0.08;
+        y = PLAY_Y + Math.sin(t * 0.6) * 0.4;
+    } else if (mode === 'drift') {
+        y = PLAY_Y + Math.sin(t * 0.55) * 2.2;
+        xOff = Math.sin(t * 0.35) * 0.5;
+    } else if (mode === 'orbit') {
+        y = PLAY_Y + Math.sin(t * 1.4) * 1.8;
+        xOff = Math.cos(t * 1.4) * 0.55;
+        rotZ = Math.sin(t * 0.8) * 0.12;
+    } else {
+        // bob (default)
+        y = PLAY_Y + Math.sin(t * 1.3) * 0.85;
+    }
+
+    // Keep standoff relative to scroll.
+    boss.baseFrontX = world.scrollX + (boss.cfg.standoff || 14);
+    boss.frontX = boss.baseFrontX + xOff;
+    boss.bodyY = y;
+
+    const sc = boss.cfg.scale || 0.22;
+    boss.body.position.set(boss.frontX, y, 0);
+    boss.body.rotation.z = rotZ;
+    boss.body.scale.set(sc * breath, sc * breath, sc);
+    if (boss.telRing) {
+        boss.telRing.position.set(boss.frontX - 1.2, y, 0.4);
+    }
+}
+
+function beginTelegraph(boss) {
+    if (!boss.telRing) return;
+    boss.telRing.visible = true;
+    boss.telMat.opacity = 0.15;
+    const kind = boss.telegraph || 'shell';
+    // Distinct flash color per signature
+    const colors = {
+        shell: boss.cfg.palette.shell || 0xffffff,
+        spin: 0xff80d0,
+        word: 0xe8e0f0,
+        mirror: 0xd0f0ff,
+        scar: VIOLET,
+        aim: 0xffb060,
+        wall: 0xeeeef2,
+        shadow: 0xc0a0ff,
+        seal: 0xd0c0ff
+    };
+    boss.telMat.color.setHex(colors[kind] || 0xffffff);
+    if (sfx.telegraph) sfx.telegraph();
+    else sfx.cast();
+    // Soft ring pulse in world FX
+    ring(boss.frontX - 1, boss.bodyY || PLAY_Y, 1.6, colors[kind] || 0xffffff);
+}
+
+function updateTelegraphVisual(boss, u) {
+    if (!boss.telRing) return;
+    boss.telMat.opacity = 0.2 + u * 0.75;
+    const s = 0.7 + u * 1.1;
+    boss.telRing.scale.set(s, s, s);
+}
+
+function hideTelegraph(boss) {
+    if (!boss.telRing) return;
+    boss.telRing.visible = false;
+    boss.telMat.opacity = 0;
+}
+
 function updateCoreMeshes(boss, dt) {
+    const by = boss.bodyY || PLAY_Y;
     for (const core of boss.cores) {
         core.x = boss.frontX + (core.dx || -1.2);
-        core.y = PLAY_Y + (core.dy || 0);
+        core.y = by + (core.dy || 0);
         if (core.mesh) {
             core.mesh.position.set(core.x, core.y, 0);
             core.mesh.visible = core.open;

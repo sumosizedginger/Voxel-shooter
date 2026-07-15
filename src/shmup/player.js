@@ -243,9 +243,15 @@ function updateWeapons(p, dt, input, world) {
     const witnessLevel = world.witness ? world.witness.level : 0;
     p._shotCd -= dt;
 
+    // holdToFire (default true): stream while held. When false, bolts only on
+    // firePressed (tap), not also on release — avoids double-fire on one tap.
+    let holdFire = true;
+    try { holdFire = getSetting('holdToFire') !== false; } catch (e) { holdFire = true; }
+
     if (p.weapon === 'hammer') {
         // The Hammer does not charge. It is a hammer.
-        if (input.fire && p._shotCd <= 0) {
+        const hammerWant = holdFire ? input.fire : input.firePressed;
+        if (hammerWant && p._shotCd <= 0) {
             const { mode } = fireHammer(world, p.x + 0.9, p.y);
             muzzleFlash(p.x + 0.95, p.y, 0, 0xffc46b);
             sfx.hammer();
@@ -263,8 +269,14 @@ function updateWeapons(p, dt, input, world) {
     if (input.fireReleased) {
         const shot = releaseCharge(p.charge, witnessLevel);
         if (shot.type === 'tap') {
-            firePlayerBolt(p, world);
-            p.lastShot = { weapon: 'pulse', tier: 0 };
+            // When holdToFire is on, the stream already fired on hold; release
+            // may still emit a final bolt if cooldown allows. When off, tap
+            // already fired on press — skip release bolt to avoid double shot.
+            if (holdFire && p._shotCd <= 0) {
+                firePlayerBolt(p, world);
+                p._shotCd = 1 / SHOT_RATE;
+                p.lastShot = { weapon: 'pulse', tier: 0 };
+            }
         } else {
             const b = firePulse(world, p.x + 0.95, p.y, shot.tier);
             muzzleFlash(p.x + 1.0, p.y, 0, 0xdffaff);
@@ -276,11 +288,9 @@ function updateWeapons(p, dt, input, world) {
         }
     }
 
-    // Rapid fire while merely holding: the bolt stream runs until the charge
-    // reaches tier 1, at which point the Pulse takes the button over. This is
-    // what lets a player who never learns the charge still have a working gun —
-    // the charge is an upgrade to holding fire, not a replacement for it.
-    if (input.fire && p.charge.tier < 1 && p._shotCd <= 0) {
+    // Rapid fire while merely holding (or on press if holdToFire is off).
+    const streamWant = holdFire ? input.fire : input.firePressed;
+    if (streamWant && p.charge.tier < 1 && p._shotCd <= 0) {
         firePlayerBolt(p, world);
         p._shotCd = 1 / SHOT_RATE;
         p.lastShot = { weapon: 'pulse', tier: 0 };

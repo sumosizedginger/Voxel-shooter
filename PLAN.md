@@ -43,9 +43,9 @@ verify the work against this document.
    Pure-logic modules (bullets, wave gauge, level director) should be written
    import-clean (no THREE, no window) exactly like `engine/collision.js` is, so
    they can be unit-tested headlessly.
-5. **The game page is `game.html`** at repo root. `index.html` remains the
-   engine smoke test. (We may promote game.html to index.html at the very end —
-   not before.)
+5. **The game page is `index.html`** (promoted; `game.html` is the same entry).
+   Engine kit smoke lives at **`kit.html`**. (Promotion completed in the
+   presentation pass — see COMPLETION.md.)
 6. **The story has landed.** The narrative is
    [docs/story-bible.html](docs/story-bible.html), integrated via
    [NARRATIVE_PLAN.md](NARRATIVE_PLAN.md). Content systems stay data-driven
@@ -482,8 +482,9 @@ Rows marked ⟶ were superseded by NARRATIVE_PLAN §2 when the story landed.
   note is historical. See [COMPLETION.md](COMPLETION.md). S2–S10 now ship as
   real modules under `src/shmup/systems/`; L02–L10 have per-level wave scripts
   + `systems` bags; bosses carry hard-fail/timeout/predict/temporal hooks;
-  music has ten tracks. Remaining polish: staged voxel cutscene dioramas and
-  L02–10 parallax art (non-blocking).
+  music has ten tracks (32-step phrases). Presentation pass closed loadout UI,
+  L02–10 parallax/terrain dressing, bespoke boss shapes, cutscene dioramas,
+  word sprites, options/rebind, and `index.html` game entry.
 - **fx.js side-view explosions + petal-hiding landed early (Phases 2/0), so
   Phase 8's first two items were already done** — Phase 8 only had to add music,
   quality keys, the smoke spec, and docs.

@@ -1,16 +1,18 @@
 // src/engine/settings.js
 // Purpose: The one module that owns all persisted state — settings,
-// campaign progress, and high scores. Every later feature (difficulty,
-// accessibility toggles, volume, keybindings, "intro seen", endings,
-// hint flags) reads and writes through this API so persistence lives in
-// exactly one place.
-// Dependencies: none (must stay import-clean — it loads before the engine
-// and is used by headless tests without a renderer).
+// campaign progress, and high scores. Dual-read vsbeu.* legacy + write rtype.*.
+// Dependencies: none (must stay import-clean).
 
-const KEYS = {
+const LEGACY_KEYS = {
     settings: 'vsbeu.settings',
     progress: 'vsbeu.progress',
     scores: 'vsbeu.scores'
+};
+
+const KEYS = {
+    settings: 'rtype.settings',
+    progress: 'rtype.progress',
+    scores: 'rtype.scores'
 };
 
 export const SETTING_DEFAULTS = {
@@ -22,8 +24,14 @@ export const SETTING_DEFAULTS = {
     reduceMotion: false,
     reduceHorrorAudio: false,    // mutes whisper / softens sub-bass, never text
     alwaysShowDialogue: false,   // replay intro/boss intros even when seen
-    keybindings: null,           // null = input.js defaults; else {action: code}
-    lastHero: 0
+    keybindings: null,           // null = input.js defaults; else {action: codes[]}
+    lastHero: 0,
+    // A11y / product (ship-quality)
+    largerHud: false,
+    lowerShake: false,
+    holdToFire: true,            // false = tap-only bolts (no auto-hold stream)
+    quality: 'high',             // low | high | ultra
+    tipsDone: false
 };
 
 const PROGRESS_DEFAULTS = {
@@ -39,9 +47,6 @@ const PROGRESS_DEFAULTS = {
 
 const MAX_SCORES = 10;
 
-// localStorage may be absent (file://, some headless contexts) or throw
-// (privacy modes). Everything funnels through these two guards; when
-// storage is unavailable the module still works, it just doesn't persist.
 function readJSON(key) {
     try {
         if (!window.localStorage) return null;
@@ -62,12 +67,24 @@ function writeJSON(key, value) {
     }
 }
 
-// In-memory copies are the source of truth for the session; storage is a
-// mirror. Unknown keys from older/newer saves are preserved on write but
-// never returned past the defaults filter.
-let settings = Object.assign({}, SETTING_DEFAULTS, readJSON(KEYS.settings) || {});
-let progress = Object.assign({}, PROGRESS_DEFAULTS, readJSON(KEYS.progress) || {});
-let scores = Array.isArray(readJSON(KEYS.scores)) ? readJSON(KEYS.scores) : [];
+/** Prefer rtype.* ; fall back to vsbeu.* so old saves migrate on next write. */
+function loadBag(primary, legacy) {
+    const a = readJSON(primary);
+    if (a != null) return a;
+    return readJSON(legacy);
+}
+
+function writeBag(primary, legacy, value) {
+    writeJSON(primary, value);
+    // Keep legacy key in sync once so older tools still see data; primary is rtype.
+    writeJSON(legacy, value);
+}
+
+// In-memory copies are the source of truth for the session; storage is a mirror.
+let settings = Object.assign({}, SETTING_DEFAULTS, loadBag(KEYS.settings, LEGACY_KEYS.settings) || {});
+let progress = Object.assign({}, PROGRESS_DEFAULTS, loadBag(KEYS.progress, LEGACY_KEYS.progress) || {});
+const rawScores = loadBag(KEYS.scores, LEGACY_KEYS.scores);
+let scores = Array.isArray(rawScores) ? rawScores : [];
 
 const listeners = new Set();
 
@@ -79,7 +96,7 @@ export function getSetting(key) {
 export function setSetting(key, value) {
     if (settings[key] === value) return;
     settings[key] = value;
-    writeJSON(KEYS.settings, settings);
+    writeBag(KEYS.settings, LEGACY_KEYS.settings, settings);
     for (const fn of listeners) {
         try { fn(key, value); } catch (e) { /* listener errors stay local */ }
     }
@@ -98,7 +115,7 @@ export function getProgress() {
 /** Merge a partial progress update and persist. */
 export function setProgress(patch) {
     Object.assign(progress, patch);
-    writeJSON(KEYS.progress, progress);
+    writeBag(KEYS.progress, LEGACY_KEYS.progress, progress);
 }
 
 /** Convenience: append to a progress array field without duplicates. */
@@ -107,7 +124,7 @@ export function markProgressFlag(arrayField, id) {
     if (!Array.isArray(arr)) return;
     if (!arr.includes(id)) {
         arr.push(id);
-        writeJSON(KEYS.progress, progress);
+        writeBag(KEYS.progress, LEGACY_KEYS.progress, progress);
     }
 }
 
@@ -125,13 +142,13 @@ export function addScore(entry) {
     });
     scores.sort((a, b) => b.score - a.score);
     scores = scores.slice(0, MAX_SCORES);
-    writeJSON(KEYS.scores, scores);
+    writeBag(KEYS.scores, LEGACY_KEYS.scores, scores);
     return scores;
 }
 
 /**
  * Difficulty scalars (Phase 3). Applied where enemies/bosses are created —
- * never to story beats. The Phase-0A audit numbers are the 'normal' curve.
+ * never to story beats.
  */
 export function difficultyMultipliers() {
     const d = settings.difficulty;
@@ -140,29 +157,55 @@ export function difficultyMultipliers() {
     return { enemyHp: 1, enemyDmg: 1 };
 }
 
+/** Reset settings only (keep progress/scores). Used by Options → Reset defaults. */
+export function resetSettingsDefaults() {
+    settings = Object.assign({}, SETTING_DEFAULTS);
+    writeBag(KEYS.settings, LEGACY_KEYS.settings, settings);
+    for (const fn of listeners) {
+        try { fn('*', settings); } catch (e) { /* ignore */ }
+    }
+    return settings;
+}
+
 /** Test/debug helper: reset everything to defaults (and clear storage). */
 export function resetAll() {
     settings = Object.assign({}, SETTING_DEFAULTS);
     progress = Object.assign({}, PROGRESS_DEFAULTS,
-        // fresh arrays/objects — the defaults object must never be mutated
         { heroCompletions: {}, bossIntroSeen: [], hintsSeen: [], unlockedEndings: [] });
     scores = [];
     try {
         if (window.localStorage) {
             for (const k of Object.values(KEYS)) window.localStorage.removeItem(k);
+            for (const k of Object.values(LEGACY_KEYS)) window.localStorage.removeItem(k);
         }
     } catch (e) { /* ignore */ }
 }
 
-// Reload guard: a stale save from before a field existed gets the default
-// (Object.assign above), but arrays shared with PROGRESS_DEFAULTS would
-// alias across resetAll — make sure the live copies are always our own.
+// Reload guard: arrays must not alias defaults.
 if (progress.bossIntroSeen === PROGRESS_DEFAULTS.bossIntroSeen) progress.bossIntroSeen = [];
 if (progress.hintsSeen === PROGRESS_DEFAULTS.hintsSeen) progress.hintsSeen = [];
 if (progress.unlockedEndings === PROGRESS_DEFAULTS.unlockedEndings) progress.unlockedEndings = [];
 if (progress.heroCompletions === PROGRESS_DEFAULTS.heroCompletions) progress.heroCompletions = {};
 
-// Debug/test handle (matches gameWorld's convention in game.js).
+// Migrate once: if we loaded from legacy only, write rtype.* immediately.
+try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+        if (!window.localStorage.getItem(KEYS.settings) && window.localStorage.getItem(LEGACY_KEYS.settings)) {
+            writeJSON(KEYS.settings, settings);
+        }
+        if (!window.localStorage.getItem(KEYS.progress) && window.localStorage.getItem(LEGACY_KEYS.progress)) {
+            writeJSON(KEYS.progress, progress);
+        }
+        if (!window.localStorage.getItem(KEYS.scores) && window.localStorage.getItem(LEGACY_KEYS.scores)) {
+            writeJSON(KEYS.scores, scores);
+        }
+    }
+} catch (e) { /* ignore */ }
+
 if (typeof window !== 'undefined') {
-    window.vsbeuSettings = { getSetting, setSetting, getProgress, setProgress, addScore, getScores, resetAll, markProgressFlag };
+    window.vsbeuSettings = {
+        getSetting, setSetting, getProgress, setProgress, addScore, getScores,
+        resetAll, resetSettingsDefaults, markProgressFlag
+    };
+    window.rtypeSettings = window.vsbeuSettings;
 }

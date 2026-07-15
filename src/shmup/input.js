@@ -131,6 +131,51 @@ export function refreshBindings() {
     _bindings = resolveBindings();
 }
 
+/** Current resolved bindings map (copy). */
+export function getBindings() {
+    const out = {};
+    for (const a of ACTIONS) out[a] = _bindings.map[a].slice();
+    return out;
+}
+
+/**
+ * Detect if `code` is already bound to a different action.
+ * @returns {string|null} conflicting action name or null
+ */
+export function findBindingConflict(code, forAction, customMap = null) {
+    const map = customMap || _bindings.map;
+    for (const a of ACTIONS) {
+        if (a === forAction) continue;
+        const list = map[a] || [];
+        if (list.includes(code)) return a;
+    }
+    return null;
+}
+
+/** Apply one primary key for an action; steals code from other actions.
+ *  returns { conflict: string|null } — conflict names the previous owner. */
+export function proposeRebind(action, code, custom) {
+    const next = {};
+    for (const a of ACTIONS) {
+        next[a] = (custom && Array.isArray(custom[a]) && custom[a].length)
+            ? custom[a].slice()
+            : (DEFAULT_BINDINGS[a] || []).slice();
+    }
+    const conflict = findBindingConflict(code, action, next);
+    // True reassignment: strip code from every other action.
+    for (const a of ACTIONS) {
+        if (a === action) continue;
+        next[a] = (next[a] || []).filter((c) => c !== code);
+        if (!next[a].length) next[a] = (DEFAULT_BINDINGS[a] || []).slice()
+            .filter((c) => c !== code);
+        // If stripping emptied the action and defaults also only had this code,
+        // leave a placeholder so the action is not unbound forever.
+        if (!next[a].length) next[a] = ['Unbound'];
+    }
+    next[action] = [code];
+    return { next, conflict };
+}
+
 function readGamepad() {
     if (typeof navigator === 'undefined' || !navigator.getGamepads) return null;
     const pads = navigator.getGamepads();

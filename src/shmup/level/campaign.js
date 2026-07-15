@@ -7,6 +7,9 @@
 
 import { LEVEL01 } from './level01.js';
 import { setProgress, getProgress } from '../../engine/settings.js';
+import {
+    buildStageTerrain, skyForLevel, parallaxLayers, scrollSpeedFor
+} from './stagecraft.js';
 
 export const THEMES = [
     null, null,
@@ -23,18 +26,9 @@ export const THEMES = [
 
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
 
-function tunnel(pal, len, chunkW = 5) {
-    const terrain = [];
-    for (let x = 0; x * chunkW < len + chunkW; x++) {
-        terrain.push({ chunk: 'fleshWall', atX: x * chunkW, y: 0, args: [20, 5, 1], palette: pal });
-        terrain.push({ chunk: 'fleshWall', atX: x * chunkW, y: 16, args: [20, 5, -1], palette: pal });
-    }
-    return terrain;
-}
-
 /**
  * Hand-authored stage body per level id. Unique wave scripts, elite cast
- * teaching moments, and system flags — not a pure factory stamp.
+ * teaching moments, systems flags, parallax, and terrain dressing.
  */
 export function makeLevel(id) {
     const theme = THEMES[id];
@@ -61,6 +55,8 @@ export function makeLevel(id) {
             { atX: 130, type: 'wave', formation: 'column', enemy: e1, count: 4, y: 8, spacing: 2.2, mimic: true },
             { atX: 152, type: 'wave', formation: 'pincer', enemy: e0, count: 6, y: 8, spacing: 1.6 },
             { atX: 174, type: 'wave', formation: 'chain', enemy: e1, count: 3, y: 6, elite: true },
+            // Room rest — empty breath after rising twist
+            { atX: 188, type: 'pickup', kind: 'shard', y: 10, recoveryOnly: true },
             { atX: 192, type: 'pickup', kind: 'bit', y: 7 },
             { atX: 200, type: 'wave', formation: 'chain', enemy: e0, count: 5, y: 9, mimic: true },
             { atX: 224, type: 'lock', until: 'cleared' },
@@ -74,7 +70,7 @@ export function makeLevel(id) {
             { atX: 306, type: 'boss', id: theme.boss },
             { atX: 320, type: 'end' }
         ],
-        3: () => [ // jester chaos
+        3: () => [ // jester chaos — geometry beat / rest / twist rooms
             { atX: 18, type: 'dialogue', id: openId },
             { atX: 26, type: 'wave', formation: 'pincer', enemy: e0, count: 6, y: 8, castChance: 0.25 },
             { atX: 48, type: 'wave', formation: 'chain', enemy: e1, count: 3, y: 10 },
@@ -82,9 +78,10 @@ export function makeLevel(id) {
             { atX: 96, type: 'wave', formation: 'escort', enemy: e2, count: 2, y: 7 },
             { atX: 110, type: 'checkpoint' },
             { atX: 116, type: 'pickup', kind: 'shard', y: 8, recoveryOnly: true },
-            { atX: 128, type: 'wave', formation: 'chain', enemy: e0, count: 6, y: 5, spacing: 1.3 },
-            { atX: 148, type: 'wave', formation: 'chain', enemy: e0, count: 6, y: 12, spacing: 1.3 },
+            { atX: 128, type: 'wave', formation: 'chain', enemy: e0, count: 5, y: 5, spacing: 1.4 },
+            { atX: 148, type: 'wave', formation: 'chain', enemy: e0, count: 5, y: 12, spacing: 1.4 },
             { atX: 170, type: 'wave', formation: 'turretNest', enemy: 'gunpod', count: 2, y: 8, spacing: 5 },
+            { atX: 186, type: 'pickup', kind: 'shard', y: 9, recoveryOnly: true },
             { atX: 194, type: 'pickup', kind: 'bit', y: 6 },
             { atX: 204, type: 'wave', formation: 'pincer', enemy: e1, count: 6, y: 8 },
             { atX: 224, type: 'lock', until: 'cleared' },
@@ -278,13 +275,13 @@ export function makeLevel(id) {
     return {
         id,
         name: theme.name,
-        scrollSpeed: 2.5 + (id % 3) * 0.08,
+        scrollSpeed: scrollSpeedFor(id),
         length: LENGTH,
         music: theme.music || 'beige',
-        palette: { sky: 0x0a0514, fogDensity: 0.004 },
+        palette: skyForLevel(id),
         checkpoints: [110, 240],
-        parallax: [],
-        terrain: tunnel(theme.pal, LENGTH),
+        parallax: parallaxLayers(id),
+        terrain: buildStageTerrain(theme.pal, LENGTH, id),
         triggers,
         systems,
         allowHardFail: id === 3,

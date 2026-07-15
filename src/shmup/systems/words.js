@@ -76,18 +76,25 @@ export function applyWordHit(word, world, player, bullet) {
 /** Build a CanvasTexture sprite material for a word (zero shipped assets). */
 export function makeWordTexture(THREE, word) {
     const c = document.createElement('canvas');
-    c.width = 256; c.height = 64;
+    c.width = 320; c.height = 72;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = 'rgba(20,8,30,0.0)';
-    ctx.fillRect(0, 0, 256, 64);
-    ctx.font = 'bold 36px monospace';
+    // High-contrast plate so labels win over any stage sky.
+    ctx.fillStyle = 'rgba(12,4,20,0.55)';
+    ctx.fillRect(8, 10, 304, 52);
+    ctx.strokeStyle = 'rgba(255,72,208,0.85)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 12, 300, 48);
+    ctx.font = 'bold 34px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#f5e6ff';
-    ctx.strokeStyle = '#8b5cf6';
-    ctx.lineWidth = 3;
-    ctx.strokeText(word, 128, 32);
-    ctx.fillText(word, 128, 32);
+    ctx.shadowColor = 'rgba(255,72,208,0.9)';
+    ctx.shadowBlur = 8;
+    ctx.fillStyle = '#fff8ff';
+    ctx.strokeStyle = '#ff48d0';
+    ctx.lineWidth = 4;
+    const label = String(word || '?').toUpperCase();
+    ctx.strokeText(label, 160, 36);
+    ctx.fillText(label, 160, 36);
     const tex = new THREE.CanvasTexture(c);
     tex.needsUpdate = true;
     return tex;

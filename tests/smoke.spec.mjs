@@ -14,7 +14,8 @@ const PORT = Number(process.env.PORT) || 8765;
 // rendered" beyond "no console errors" (index.html has the hitbox/collision
 // proof panel; examples get the same treatment once Phase 3 adds them).
 const PAGES = [
-    { path: 'index.html', hudSelector: '#hud', mustContain: ['vectorized hitbox', 'AABB collision'] },
+    // Engine kit smoke lives at kit.html; index.html is the GUMOI game entry.
+    { path: 'kit.html', hudSelector: '#hud', mustContain: ['vectorized hitbox', 'AABB collision'] },
     { path: 'examples/topdown-8way.html', hudSelector: '#hud', mustContain: ['topdown-8way example', 'facing'] },
     { path: 'examples/voxel-showcase.html', hudSelector: '#hud', mustContain: ['voxel-showcase example', 'quality tier'] }
 ];

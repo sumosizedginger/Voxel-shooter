@@ -1,6 +1,6 @@
 // src/shmup/bulletmesh.js
-// Purpose: draw the bullet pools. One InstancedMesh per bullet family.
-// Dependencies: three, ./bullets.js (KIND only), ./palette.js
+// Purpose: draw the bullet pools. One InstancedMesh per bullet family + word sprites.
+// Dependencies: three, ./bullets.js (KIND only), ./palette.js, systems/words
 //
 // PLAN.md §2.4 / ASSETS_PLAN §5. Same technique as engine/particles.js: one
 // shared _dummy Object3D, setMatrixAt per live bullet, park the dead ones at
@@ -9,10 +9,14 @@
 // ASSETS_PLAN R4 is a hard rule and it lives here: enemy bullets are unlit
 // MeshBasicMaterial magenta — the brightest, least-occludable thing on screen.
 // If a bullet is ever hard to see, darken the background, not the bullet.
+//
+// Word bullets (KIND.WORD) use CanvasTexture sprites via makeWordTexture so
+// DELVE / TAPESTRY / … are readable; the box family remains as a faint underglow.
 
 import * as THREE from 'three';
 import { KIND } from './bullets.js';
 import { BULLET_PALETTE } from './palette.js';
+import { makeWordTexture } from './systems/words.js';
 
 const PARKED = new THREE.Vector3(0, -9999, 0);
 
@@ -37,8 +41,8 @@ function families() {
         [KIND.HAMMER]: { geo: new THREE.BoxGeometry(0.34, 0.16, 0.16), mat: glow(BULLET_PALETTE.hammer, 1.8), cap: 48 },
         [KIND.ENEMY_ORB]: { geo: orbGeo, mat: basic(BULLET_PALETTE.enemy), cap: 256 },
         [KIND.ENEMY_HEAVY]: { geo: new THREE.BoxGeometry(0.6, 0.22, 0.22), mat: basic(BULLET_PALETTE.enemyHeavy), cap: 96 },
-        // L04 forbidden-word bullets: pale, boxy, unmistakable (bible §07).
-        [KIND.WORD]: { geo: new THREE.BoxGeometry(0.5, 0.28, 0.12), mat: basic(BULLET_PALETTE.word), cap: 48 }
+        // Under-glow for words; the readable label is a separate Sprite (below).
+        [KIND.WORD]: { geo: new THREE.BoxGeometry(0.55, 0.22, 0.1), mat: basic(BULLET_PALETTE.word, { transparent: true, opacity: 0.35 }), cap: 48 }
     };
 }
 
@@ -47,20 +51,37 @@ export class BulletRenderer {
         this.scene = scene;
         this.meshes = {};
         this._dummy = new THREE.Object3D();
+        this._wordTexCache = new Map();
+        this._wordSprites = [];   // { sprite, mat, texKey }
+        this._wordCap = 48;
 
         const defs = families();
         for (const kind of Object.keys(defs)) {
             const d = defs[kind];
             const m = new THREE.InstancedMesh(d.geo, d.mat, d.cap);
-            m.frustumCulled = false;      // they live where the camera is looking
+            m.frustumCulled = false;
             m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             m.count = d.cap;
             scene.add(m);
             this.meshes[kind] = { mesh: m, cap: d.cap };
-            // Park everything before the first frame, or dead instances render
-            // as a pile of bullets at the origin.
             for (let i = 0; i < d.cap; i++) this._park(m, i);
             m.instanceMatrix.needsUpdate = true;
+        }
+
+        // Prebuild a sprite pool for word labels.
+        for (let i = 0; i < this._wordCap; i++) {
+            const mat = new THREE.SpriteMaterial({
+                color: 0xffffff,
+                transparent: true,
+                depthTest: true,
+                depthWrite: false,
+                toneMapped: false
+            });
+            const sprite = new THREE.Sprite(mat);
+            sprite.scale.set(2.0, 0.48, 1);
+            sprite.visible = false;
+            scene.add(sprite);
+            this._wordSprites.push({ sprite, mat, texKey: null });
         }
     }
 
@@ -72,6 +93,20 @@ export class BulletRenderer {
         mesh.setMatrixAt(i, this._dummy.matrix);
     }
 
+    _textureFor(word) {
+        const key = String(word || '?').toUpperCase();
+        if (this._wordTexCache.has(key)) return this._wordTexCache.get(key);
+        let tex = null;
+        try {
+            tex = makeWordTexture(THREE, key);
+        } catch (e) {
+            // Headless / no document — leave null; under-glow box still draws.
+            tex = null;
+        }
+        this._wordTexCache.set(key, tex);
+        return tex;
+    }
+
     /**
      * Push one or more pools to the GPU. Call once per frame with every pool;
      * bullets are bucketed by `kind`, so a single pool may feed several meshes.
@@ -80,6 +115,7 @@ export class BulletRenderer {
     update(pools) {
         const counts = {};
         for (const kind of Object.keys(this.meshes)) counts[kind] = 0;
+        let wordI = 0;
 
         for (const pool of pools) {
             if (!pool) continue;
@@ -88,18 +124,36 @@ export class BulletRenderer {
                 const entry = this.meshes[b.kind];
                 if (!entry) continue;
                 const i = counts[b.kind];
-                if (i >= entry.cap) continue;      // over cap: drop the draw, not the bullet
+                if (i >= entry.cap) continue;
                 const d = this._dummy;
                 d.position.set(b.x, b.y, 0);
-                // Point the sprite along its velocity: a bolt that doesn't lead
-                // with its nose reads as debris, not as a shot.
                 d.rotation.set(0, 0, (b.vx || b.vy) ? Math.atan2(b.vy, b.vx) : 0);
                 if (b.spin) d.rotation.z += b.spin;
                 d.scale.setScalar(b.scale || 1);
                 d.updateMatrix();
                 entry.mesh.setMatrixAt(i, d.matrix);
                 counts[b.kind] = i + 1;
+
+                if (b.kind === KIND.WORD && wordI < this._wordCap) {
+                    const slot = this._wordSprites[wordI++];
+                    const key = String(b.word || 'WORD').toUpperCase();
+                    if (slot.texKey !== key) {
+                        const tex = this._textureFor(key);
+                        slot.mat.map = tex;
+                        slot.mat.needsUpdate = true;
+                        slot.texKey = key;
+                    }
+                    slot.sprite.position.set(b.x, b.y, 0.05);
+                    // Face the travel direction slightly for readability.
+                    const len = Math.max(0.9, Math.min(2.4, key.length * 0.22));
+                    slot.sprite.scale.set(len, 0.42, 1);
+                    slot.sprite.visible = true;
+                }
             }
+        }
+
+        for (; wordI < this._wordCap; wordI++) {
+            this._wordSprites[wordI].sprite.visible = false;
         }
 
         for (const kind of Object.keys(this.meshes)) {

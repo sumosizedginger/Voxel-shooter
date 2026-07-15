@@ -198,7 +198,9 @@ export function killEnemy(pool, e, world) {
         shatter(e.x, e.y, t.voxMap, t.scale, n);
     }
     explode(e.x, e.y, e.type === 'carrier' ? 1.6 : 0.9);
-    sfx.boom();
+    if (e.type === 'carrier') sfx.boom();
+    else if (sfx.kill) sfx.kill();
+    else sfx.boom();
 
     world.score += e.score;
     if (e.drops && world.spawnPickup) world.spawnPickup(e.drops, e.x, e.y);
