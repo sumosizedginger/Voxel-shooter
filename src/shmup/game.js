@@ -6,7 +6,10 @@
 // nothing reaches through `window`.
 
 import * as THREE from 'three';
-import { scene, camera, renderer, composer, onResize } from '../engine/renderer.js';
+import {
+    scene, camera, renderer, composer, onResize,
+    setCineCamera, clearCineCamera, updateCineCamera
+} from '../engine/renderer.js';
 import { updateShadowFollow } from '../engine/lights.js';
 import { initShmupLights } from './lighting.js';
 import { ParticleSystem } from '../engine/particles.js';
@@ -21,7 +24,7 @@ import {
 import { Terrain } from './terrain.js';
 import { createLevelRunner, tickLevelRunner, disposeLevelRunner, levelTimeline } from './level/runner.js';
 import { levelProgress } from './level/director.js';
-import { createPool, updateBullets, collideBullets, clearPool, firstHit, kill } from './bullets.js';
+import { createPool, updateBullets, collideBullets, clearPool, firstHit, kill, spawn, KIND } from './bullets.js';
 import { BulletRenderer } from './bulletmesh.js';
 import {
     createPlayer, updatePlayer, damagePlayer, killPlayer, respawnPlayer, setPulseShake
@@ -51,6 +54,32 @@ import {
     createComms, pushComms, pushRandom, clearComms, updateComms,
     DEATH_LINES, VICTORY_LINES
 } from './comms.js';
+import {
+    createProfanity, updateProfanity, tryProfanity
+} from './systems/profanity.js';
+import {
+    createHeat, updateHeat, heatWeaponsOffline, heatFraction
+} from './systems/heat.js';
+import {
+    createAsymmetry, updateAsymmetry, asymmetryDamageMult
+} from './systems/asymmetry.js';
+import {
+    createModStack, updateMods, transformInput, screenPushDelta, clearMods, hasMod, pushMod
+} from './systems/modifiers.js';
+import {
+    createRecorder, recordFrame, sampleAt, clearRecorder
+} from './systems/inputrec.js';
+import {
+    createPredictor, recordMotion
+} from './systems/predictor.js';
+import {
+    createTemporalLoop, updateTemporal, recordBulletEvent, stopTemporal
+} from './systems/temporal.js';
+import {
+    createCutscenePlayer, playCutscene, updateCutscene, skipCutscene,
+    cutsceneActive, levelOpenCutscene
+} from './systems/cutscene.js';
+import { applyWordHit } from './systems/words.js';
 
 export const STATE = {
     TITLE: 'TITLE',
@@ -58,7 +87,8 @@ export const STATE = {
     PAUSED: 'PAUSED',
     DEATH: 'DEATH',
     RESPAWN: 'RESPAWN',
-    GAMEOVER: 'GAMEOVER'
+    GAMEOVER: 'GAMEOVER',
+    CUTSCENE: 'CUTSCENE'
 };
 
 const START_LIVES = 3;
@@ -99,7 +129,7 @@ function setState(next) {
     world.state = next;
     // Music follows state: it plays through the fight, mutes on pause (so the
     // playhead survives), and stops on the menus.
-    setMusicEnabled(next === STATE.PLAYING || next === STATE.DEATH);
+    setMusicEnabled(next === STATE.PLAYING || next === STATE.DEATH || next === STATE.CUTSCENE);
     if (next === STATE.TITLE || next === STATE.GAMEOVER) stopMusic();
     renderOverlay();
 }
@@ -175,8 +205,14 @@ function resolveCollisions(dt) {
         // A completed announcement's slow-shot stacks a slow (bible §04) as well
         // as chipping — that's what makes interrupting them matter.
         if (hit.isSlowShot) applySlowShot(world);
+        let dmg = hit.dmg;
+        // S7 word-bullet effects (DELVE slow, ROBUST heal boss, TAPESTRY grid…)
+        if (hit.onlyProfanity || hit.kind === 'word') {
+            const r = applyWordHit(hit.word || '', world, p, hit);
+            dmg = r.dmg;
+        }
         kill(world.enemyBullets, hit);
-        damagePlayer(p, hit.dmg, world);
+        if (dmg > 0) damagePlayer(p, dmg, world);
     }
 
     if (!p.alive) return;
@@ -269,7 +305,9 @@ function renderHud() {
     dom.score.textContent = String(world.score);
     dom.lives.textContent = '×' + Math.max(0, world.lives);
     if (dom.hull && player) {
-        const pct = Math.max(0, player.hull) / player.maxHull * 100;
+        let pct = Math.max(0, player.hull) / player.maxHull * 100;
+        // S6 hudLie: invert the bar reading so she cannot trust the meter.
+        if (world.hudLie) pct = 100 - pct;
         dom.hull.style.width = pct + '%';
         // The bar takes on the scar violet as she loses hull — the HUD and the
         // ship tell the same story in the same color.
@@ -297,7 +335,9 @@ function renderHud() {
 
     // ── weapon + Witness + drones
     if (dom.weapon && player) {
-        dom.weapon.textContent = player.weapon === 'pulse' ? 'SIREN' : 'HAMMER';
+        let label = player.weapon === 'pulse' ? 'SIREN' : 'HAMMER';
+        if (world.hudLie) label = player.weapon === 'pulse' ? 'HAMMER' : 'SIREN';
+        dom.weapon.textContent = label;
         dom.weapon.style.opacity = player.swapT > 0 ? 0.4 : 1;
     }
     if (dom.witness) {
@@ -323,10 +363,28 @@ function renderHud() {
         if (show) {
             dom.bossBar.style.width = Math.max(0, b.hp / b.maxHp * 100) + '%';
             if (dom.bossName) {
-                const ph = b.phases[b._phaseKey];
-                dom.bossName.textContent = 'THE BEIGE SLOPE · ' + (ph ? ph.name : '');
+                const ph = b.phases
+                    ? (b.phases[b._phaseKey] || b.phases[b._phaseIndex])
+                    : null;
+                const nm = b.name || (b.cfg && b.cfg.name) || 'BOSS';
+                dom.bossName.textContent = ph && ph.name ? (nm + ' · ' + ph.name) : nm;
             }
         }
+    }
+
+    // System meters (heat / asymmetry / profanity CD)
+    if (dom.sysMeter) {
+        const sys = world.level && world.level.systems;
+        let text = '';
+        if (sys && sys.heat && heat) {
+            text = heatWeaponsOffline(heat) ? 'HEAT OFFLINE' : ('HEAT ' + Math.round(heatFraction(heat) * 100));
+        } else if (sys && sys.asymmetry && asymmetry) {
+            text = 'ASYM ' + Math.round(asymmetry.score * 100);
+        } else if (sys && sys.profanity && profanity) {
+            text = profanity.cd > 0 ? ('PROF ' + profanity.cd.toFixed(1) + 's') : 'PROF READY (F)';
+        }
+        dom.sysMeter.textContent = text;
+        dom.sysMeter.style.display = text ? 'block' : 'none';
     }
 }
 
@@ -364,6 +422,7 @@ function renderDebug() {
         + ' ' + (world.witness ? world.witness.state : '') + '\n' +
         'fps      ' + fps.toFixed(0) + '   draws ' + lastDrawCalls + '\n' +
         (godMode ? '*** GOD MODE — score not recorded ***\n' : '') +
+        (devMode ? '*** DEV MODE (Ctrl×10 toggles) · Shift+1..0 = level jump ***\n' : '') +
         'next     ' + (runner ? levelTimeline(runner, 4)
             .map((tr) => tr.type + '@' + tr.atX).join('  ') : '');
 }
@@ -405,6 +464,9 @@ function startRun(atX = 0, id = null) {
     clearFx();
     clearShake();
     clearComms(comms);
+    clearMods(mods);
+    clearRecorder(recorder);
+    stopTemporal(temporal);
     if (world.boss) { disposeBoss(world.boss, scene); world.boss = null; }
     pendingBoss = null;
     stageClear = false;
@@ -416,8 +478,56 @@ function startRun(atX = 0, id = null) {
     respawnPlayer(player, playerBounds().minX + 4, PLAY_Y);
     player.lives = START_LIVES;
     refreshPerLife(world.drones, player);        // the Ghost's phase charge
-    setState(STATE.PLAYING);
+    armLevelSystems(world.level);
     playTrack(world.level.music || 'beige');
+
+    // S3: opening cutscene (skipped when authoring with ?x= or ?skipcs=1).
+    if (atX <= 0 && !skipCutscenes) {
+        const script = levelOpenCutscene(currentLevelId, atX);
+        setState(STATE.CUTSCENE);
+        playCutscene(cutscene, script, {
+            setCineCamera, clearCineCamera, getSetting,
+            pushComms: (id) => pushComms(comms, id)
+        }, () => {
+            clearCineCamera();
+            setState(STATE.PLAYING);
+        });
+    } else {
+        setState(STATE.PLAYING);
+    }
+}
+
+function armLevelSystems(level) {
+    const sys = (level && level.systems) || {};
+    world.levelSystems = sys;
+    world.mods = mods;
+    world.pushMod = (name, dur, data) => pushMod(mods, name, dur, data);
+    world.predictor = sys.predictor || sys.heat ? predictor : null;
+    world.asymmetry = sys.asymmetry ? asymmetry : null;
+    world.temporal = temporal;
+    world.damageMult = () => (sys.asymmetry ? asymmetryDamageMult(asymmetry) : 1);
+    world.recordTemporalBullet = (b) => {
+        if (sys.temporal || (temporal && temporal.active)) recordBulletEvent(temporal, b);
+    };
+    heat.value = 0; heat.offline = 0;
+    profanity.cd = 0;
+    shadowT = 0;
+    world.hudLie = false;
+    if (shadowMesh) shadowMesh.visible = false;
+}
+
+/** Build a translucent shadow ghost for L5/L9 (S8). */
+function ensureShadowGhost() {
+    if (shadowMesh) return;
+    shadowMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(1.2, 0.5, 0.4),
+        new THREE.MeshStandardMaterial({
+            color: 0x8b5cf6, emissive: 0x4c1d95, emissiveIntensity: 1.2,
+            transparent: true, opacity: 0.45, depthWrite: false
+        })
+    );
+    shadowMesh.visible = false;
+    scene.add(shadowMesh);
 }
 
 /**
@@ -469,22 +579,120 @@ function tickPlaying(dt) {
     world.scrollX = scrollX;
     world.bounds = playerBounds();
 
+    const sys = world.levelSystems || {};
+
+    // S6 arena modifiers: transform input BEFORE movement so slow/flip apply.
+    updateMods(mods, dt);
+    let playInput = input;
+    if (sys.modifiers || hasMod(mods, 'controlFlip') || hasMod(mods, 'gravityInvert')
+        || hasMod(mods, 'screenPush') || hasMod(mods, 'weaponShuffle') || hasMod(mods, 'hudLie')
+        || hasMod(mods, 'slowStack')) {
+        playInput = transformInput(mods, input);
+    }
+    // weaponShuffle: randomly invert fire/swap meaning for the duration.
+    if (hasMod(mods, 'weaponShuffle') && playInput.swapPressed) {
+        // swallow swap; fire still works — shuffle is a lie, not a hard lock.
+        playInput = Object.assign({}, playInput, { swapPressed: false, swap: false });
+        if (Math.random() < 0.5) player.weapon = player.weapon === 'pulse' ? 'hammer' : 'pulse';
+    }
+    // hudLie: flip displayed hull / weapon labels (presentation only).
+    world.hudLie = hasMod(mods, 'hudLie');
+    // S6 slowStack: flag for updatePlayer (which recomputes speedScale).
+    world.modSpeedScale = hasMod(mods, 'slowStack') ? 0.55 : 1;
+
+    // Signature meters
+    if (sys.heat) updateHeat(heat, dt, playInput, true);
+    else updateHeat(heat, dt, playInput, false);
+    if (sys.asymmetry) updateAsymmetry(asymmetry, dt, playInput);
+    updateProfanity(profanity, dt);
+    // SEAMLESS word-lock decay
+    if (player._wordLockT > 0) player._wordLockT -= dt;
+
+    // S7 Profanity Key
+    if ((sys.profanity || (world.boss && world.boss.cfg && world.boss.kind === 'boss04'))
+        && input.profanityPressed) {
+        const cancelled = tryProfanity(profanity, world, player);
+        if (cancelled) {
+            sfx.interrupt();
+            sparkHit(cancelled.x, cancelled.y, 0xffe08a);
+            world.flashPickup && world.flashPickup('—' + (cancelled.word || 'WORD') + '—');
+        } else {
+            sfx.uiMove();
+        }
+    }
+
+    // S9 motion record
+    if (sys.predictor || sys.heat) recordMotion(predictor, dt, player.x, player.y);
+
+    // S8 input recorder + shadow ghost (L5 delay fixed; L9 ramps 0.5→0.1)
+    recordFrame(recorder, dt, {
+        x: player.x, y: player.y,
+        ax: playInput.axisX, ay: playInput.axisY,
+        fire: playInput.fire, weapon: player.weapon,
+        vx: player.vx, vy: player.vy
+    });
+    if (sys.shadow) {
+        ensureShadowGhost();
+        shadowT += dt;
+        let delay = sys.shadowDelay || 0.3;
+        if (sys.shadowRamp) {
+            // L9: 0.5 s → 0.1 s over ~90 s of fight pressure.
+            const t = Math.min(1, shadowT / 90);
+            delay = 0.5 - t * 0.4;
+        }
+        const snap = sampleAt(recorder, delay);
+        // Contradiction window: current fire while delayed snap was also firing
+        // in the opposite vertical half — opens a brief weakpoint on the boss.
+        if (sys.contradiction && snap && playInput.fire && snap.fire
+            && Math.sign(playInput.axisY || 0.01) !== Math.sign(snap.ay || 0.01)
+            && world.boss && world.boss.cores) {
+            for (const c of world.boss.cores) {
+                c.weakpointT = Math.max(c.weakpointT || 0, 0.6);
+                c.open = true;
+            }
+        }
+        // L9 phase 2: replay shots from 5 s ago as enemy bullets.
+        if (sys.replayShots) {
+            const old = sampleAt(recorder, 5.0);
+            if (old && old.fire && Math.random() < dt * 4) {
+                spawnEnemyShotFromShadow(old);
+            }
+        }
+        if (snap && shadowMesh) {
+            shadowMesh.visible = true;
+            shadowMesh.position.set(snap.x, snap.y, 0.1);
+            if (player.alive && player.invuln <= 0
+                && circleHit(player.x, player.y, player.r, snap.x, snap.y, 0.45)) {
+                damagePlayer(player, 3, world);
+            }
+        }
+    } else if (shadowMesh) {
+        shadowMesh.visible = false;
+        shadowT = 0;
+    }
+
+    // Heat offline OR SEAMLESS word-lock → weapons offline (must OR, not overwrite)
+    player.weaponsOffline = heatWeaponsOffline(heat) || (player._wordLockT > 0);
+
     tickLevelRunner(runner, dt, scrollX);
-    // ?god=1: hold invulnerability so the ship survives tuning runs. Scores are
-    // not recorded and the HUD is watermarked (LEVELS_PLAN §8) so a god run can
-    // never be mistaken for a real one.
     if (godMode) player.invuln = Math.max(player.invuln, 0.1);
-    updatePlayer(player, dt, input, world);
+    updatePlayer(player, dt, playInput, world);
+
+    // S6 screenPush
+    if (hasMod(mods, 'screenPush') && player.alive) {
+        const push = screenPushDelta(mods, dt);
+        player.x += push.dx;
+        player.y += push.dy;
+        const b = playerBounds();
+        player.x = Math.max(b.minX, Math.min(b.maxX, player.x));
+        player.y = Math.max(b.minY, Math.min(b.maxY, player.y));
+    }
+
     updateDrones(world.drones, dt, player, world, input);
     updateEnemies(world.enemies, dt, world);
     updatePickups(world.pickups, dt, player, world);
-    // The Witness ticks AFTER enemies fire but BEFORE resolveCollisions — a
-    // bullet it should eat must be gone before the player-collision pass runs,
-    // or the shield it's providing arrives a frame too late to matter.
     updateWitness(world.witness, dt, player, world, input);
 
-    // Bullets cull on a generous box around the screen — a bullet that leaves
-    // is gone, and it must not cost anything to have left.
     const cullBox = {
         minX: despawnX(3), maxX: spawnX(3),
         minY: PLAY_MIN_Y - 3, maxY: PLAY_MAX_Y + 3
@@ -493,22 +701,22 @@ function tickPlaying(dt) {
         (b) => sparkHit(b.x, b.y, 0x9fe8ff));
     updateBullets(world.enemyBullets, dt, cullBox, null);
 
-    // The boss owns the fight while it lives (ticked before collisions so its
-    // mouths and slow-shots are current when resolveCollisions runs).
+    // S10 temporal loop (boss phase may have armed it)
+    if (temporal.active) updateTemporal(temporal, dt, world);
+
     if (world.boss) updateBoss(world.boss, dt, world);
 
     resolveCollisions(dt);
 
-    // The boss trigger hands control to the boss module (any boss id).
     if (pendingBoss) {
         const id = pendingBoss;
         pendingBoss = null;
         if (world.boss) disposeBoss(world.boss, scene);
         createBoss(id, scene, world);
     }
-    // The `end` trigger fires ~14u after the boss trigger; ignore it until the
-    // boss is actually down (world.onBossCleared drives the real clear).
     levelCleared = false;
+
+    renderCastTags();
 }
 
 function onLevelClear() {
@@ -616,6 +824,20 @@ function frame() {
             tickPlaying(dt);
             break;
 
+        case STATE.CUTSCENE: {
+            updateCineCamera(dt, world.level);
+            const empty = !comms.current && (!comms.queue || !comms.queue.length);
+            updateComms(comms, dt, input.skipPressed);
+            if (input.skipPressed || input.firePressed) {
+                // Skip only after a short grace so a leftover confirm doesn't eat it.
+                if (stateT > 0.35) skipCutscene(cutscene);
+            }
+            if (!updateCutscene(cutscene, dt, empty && !comms.current)) {
+                // finished via update or skip
+            }
+            break;
+        }
+
         case STATE.PAUSED:
             if (input.pausePressed) setState(prevState);
             break;
@@ -680,8 +902,8 @@ function frame() {
     consumeAnyKey();
     // Comms advance while playing or during the death beat; the skip key cuts a
     // talky line short so an intro never holds a player hostage.
-    if (state === STATE.PLAYING || state === STATE.DEATH) {
-        updateComms(comms, dt, input.skipPressed);
+    if (state === STATE.PLAYING || state === STATE.DEATH || state === STATE.CUTSCENE) {
+        if (state !== STATE.CUTSCENE) updateComms(comms, dt, input.skipPressed);
     }
     renderComms();
     particles.update(dt);
@@ -694,6 +916,41 @@ function frame() {
 
     composer.render();
     lastDrawCalls = renderer.info.render.calls;
+}
+
+/** S2 cast tags — DOM labels over casting enemies / weakpoints. */
+function renderCastTags() {
+    if (!dom.castLayer) return;
+    const layer = dom.castLayer;
+    const need = [];
+    for (const e of world.enemies.items) {
+        if (!e.alive) continue;
+        if (e.castT > 0 && e.cast && e.cast.text) {
+            need.push({ x: e.x, y: e.y + 0.9, text: e.cast.text, kind: 'cast' });
+        } else if (e.weakpointT > 0) {
+            need.push({ x: e.x, y: e.y + 0.9, text: '!!', kind: 'wp' });
+        }
+    }
+    while (layer.children.length < need.length) {
+        const el = document.createElement('div');
+        el.className = 'castTag';
+        layer.appendChild(el);
+    }
+    for (let i = 0; i < layer.children.length; i++) {
+        const el = layer.children[i];
+        const n = need[i];
+        if (!n) { el.style.display = 'none'; continue; }
+        el.style.display = 'block';
+        el.textContent = n.text;
+        el.className = 'castTag' + (n.kind === 'wp' ? ' wp' : '');
+        // Project world XY (z=0) to screen.
+        const v = new THREE.Vector3(n.x, n.y, 0);
+        v.project(camera);
+        const sx = (v.x * 0.5 + 0.5) * window.innerWidth;
+        const sy = (-v.y * 0.5 + 0.5) * window.innerHeight;
+        el.style.left = sx + 'px';
+        el.style.top = sy + 'px';
+    }
 }
 
 export function boot(domRefs) {
@@ -761,17 +1018,49 @@ export function boot(domRefs) {
 
     // ── quality tiers (PLAN.md Phase 8): keys 1/2/3 pick a tier, like the
     //    showcase example. A settings menu can call setQuality() the same way.
+    // ── secret dev mode: press Ctrl (either side) ten times. Toggles god +
+    //    debug overlay + cutscene skip. Scores suppressed while active.
     window.addEventListener('keydown', (e) => {
-        if (e.code === 'Digit1') setQuality('low');
-        else if (e.code === 'Digit2') setQuality('high');
-        else if (e.code === 'Digit3') setQuality('ultra');
+        if (e.code === 'Digit1' && !e.ctrlKey) setQuality('low');
+        else if (e.code === 'Digit2' && !e.ctrlKey) setQuality('high');
+        else if (e.code === 'Digit3' && !e.ctrlKey) setQuality('ultra');
+
+        if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+            if (e.repeat) return;
+            noteCtrlTap();
+        }
+
+        // Dev-only cheats (only while the badge is on)
+        if (devMode) {
+            // Shift+1..0 → jump to level 1..10 and restart the run
+            if (e.shiftKey && e.code.startsWith('Digit')) {
+                const n = e.code === 'Digit0' ? 10 : Number(e.code.slice(5));
+                if (n >= 1 && n <= LAST_LEVEL) {
+                    e.preventDefault();
+                    keepScore = true;
+                    startRun(0, n);
+                    world.flashPickup && world.flashPickup('L' + (n < 10 ? '0' : '') + n);
+                }
+            }
+        }
     });
 
     // ── authoring tools (LEVELS_PLAN §8): ?x= start scrolled, ?god=1 invincible.
     const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
     startAtX = Math.max(0, Number(params.get('x')) || 0);
     godMode = params.get('god') === '1';
+    skipCutscenes = params.get('skipcs') === '1' || params.has('x');
     if (params.has('debug')) debugOn = true;
+    if (params.get('dev') === '1') setDevMode(true);
+
+    // Boss signature callbacks
+    world.onBossIntegrated = () => {
+        world.flashPickup && world.flashPickup('INTEGRATED');
+        sfx.bigBoom();
+    };
+    world.onBossTimeout = () => {
+        if (player && player.alive) killPlayer(player, world, true);
+    };
 
     window.addEventListener('resize', onResize);
     window.__engineKit = { renderer, composer, scene };
@@ -779,7 +1068,9 @@ export function boot(domRefs) {
         world, getState, setState,
         debugText: () => (dom.debug ? dom.debug.textContent : ''),
         setDebug: (on) => { debugOn = !!on; },
-        timeline: () => levelTimeline(runner, 8)
+        timeline: () => levelTimeline(runner, 8),
+        isDevMode: () => devMode,
+        setDevMode
     };
 
     setScrollX(0);
@@ -794,6 +1085,51 @@ let gameOverChoice = 0;         // 0 = CONTINUE, 1 = QUIT
 let continueX = 0;
 let startAtX = 0;
 let godMode = false;
+let skipCutscenes = false;
+/** Secret authoring mode: Ctrl × 10 (Windows). God + debug + skip cutscenes. */
+let devMode = false;
+let _ctrlTaps = 0;
+let _ctrlTapAt = 0;
+const CTRL_TAP_NEED = 10;
+const CTRL_TAP_WINDOW_MS = 2500;   // gap longer than this resets the count
+
+function noteCtrlTap() {
+    const now = performance.now();
+    if (now - _ctrlTapAt > CTRL_TAP_WINDOW_MS) _ctrlTaps = 0;
+    _ctrlTapAt = now;
+    _ctrlTaps++;
+    if (_ctrlTaps >= CTRL_TAP_NEED) {
+        _ctrlTaps = 0;
+        setDevMode(!devMode);
+    }
+}
+
+/**
+ * Toggle the secret dev/authoring mode.
+ * On: god mode, debug overlay, skip cutscenes, score suppressed, level warp.
+ * Off: restore non-URL authoring defaults (URL ?god=1 still wins until reload).
+ */
+export function setDevMode(on) {
+    devMode = !!on;
+    if (devMode) {
+        godMode = true;
+        debugOn = true;
+        skipCutscenes = true;
+        if (dom.devBadge) dom.devBadge.classList.add('on');
+        if (world.flashPickup) world.flashPickup('DEV MODE');
+        sfx.uiConfirm();
+    } else {
+        // Leave URL-forced flags alone if the page was loaded with ?god= / ?debug
+        const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+        godMode = params.get('god') === '1';
+        debugOn = params.has('debug');
+        skipCutscenes = params.get('skipcs') === '1' || params.has('x');
+        if (dom.devBadge) dom.devBadge.classList.remove('on');
+        if (world.flashPickup) world.flashPickup('DEV OFF');
+        sfx.uiMove();
+    }
+}
+
 let comms = createComms();
 let currentLevelId = 1;
 let nextLevelId = 0;
@@ -801,6 +1137,25 @@ let keepScore = false;          // carry score across a stage-clear transition
 let betweenT = 0;               // the ending's own clock
 let codexOpen = false;
 let codexIndex = 0;
+
+// Phase-9 story / signature systems (NARRATIVE §4 S2–S10)
+let profanity = createProfanity();
+let heat = createHeat();
+let asymmetry = createAsymmetry();
+let mods = createModStack();
+let recorder = createRecorder(8, 30);
+let predictor = createPredictor();
+let temporal = createTemporalLoop(12);
+let cutscene = createCutscenePlayer();
+let shadowMesh = null;
+let shadowT = 0;
+
+function spawnEnemyShotFromShadow(snap) {
+    spawn(world.enemyBullets, {
+        x: snap.x, y: snap.y, vx: -12, vy: 0,
+        r: 0.14, dmg: 5, kind: KIND.ENEMY_ORB, hitsTerrain: false
+    });
+}
 
 const STATE_BETWEEN = 'BETWEEN';
 

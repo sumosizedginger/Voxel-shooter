@@ -13,6 +13,7 @@ import { FORMATIONS } from './formations.js';
 import { buildTerrain, buildParallax, disposeBuilt } from './build.js';
 import { spawnEnemy, clearEnemies } from '../enemies/index.js';
 import { PLAY_MIN_Y, PLAY_MAX_Y } from '../camera.js';
+import { maybeAssignCast } from '../systems/cast.js';
 
 /**
  * @param {object} level  a data level (level01.js shape)
@@ -96,8 +97,21 @@ function spawnFormation(runner, trigger) {
     };
 
     const spawn = (type, opts) => {
-        const e = spawnEnemy(world.enemies, type, opts);
+        const o = Object.assign({}, opts, {
+            levelId: runner.level.id,
+            elite: !!(trigger.elite || (opts && opts.elite)),
+            castChance: trigger.castChance != null ? trigger.castChance
+                : (opts && opts.castChance)
+        });
+        // Propagate mimic flag for L2 (S5): enemy will fire the copy buffer.
+        if (trigger.mimic || runner.level.systems && runner.level.systems.mimic) {
+            o.mimic = true;
+        }
+        const e = spawnEnemy(world.enemies, type, o);
         if (e) {
+            if (o.mimic) e.mimic = true;
+            // S2 cast assignment when the wave asks for it (or L1 teach).
+            if (!e.cast) maybeAssignCast(e, trigger, runner.level.id);
             runner.activeWaveEnemies.push(e);
             // ambushRear enemies come from behind — flash the left edge first (F3).
             if (opts && opts.telegraphed) runner.leftEdgeFlash = 0.5;

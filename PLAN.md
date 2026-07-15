@@ -343,11 +343,12 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
   with only the HUD to guide them.
 
 ### Phase 8 — Polish + hardening
-- [ ] Side-view explosion FX: add a new pooled burst to `src/shmup/fx.js`
+- [x] Side-view explosion FX: add a new pooled burst to `src/shmup/fx.js`
       (radial shards in XY, no floor bounce, shockwave ring rotated to face
       camera — i.e. NO rotation.x, it already faces +Z when unrotated is
       wrong; set `rotation.x = 0` so the ring lies in XY). Muzzle flashes,
       beam charge glow (emissive sphere growing at the nose).
+      *(Landed in Phase 2; checkbox closed in completion pass.)*
 - [x] Hide the kit's ambient petal rain in space levels
       (`particles.petalMesh.visible = false`) or recolor/repurpose as star
       specks.
@@ -357,6 +358,7 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
 - [x] Music: a minimal looping sequencer on top of `playTone` (bass line +
       arp, `channel: 'music'`) in `src/shmup/music.js`. Data-driven note
       arrays so real compositions can replace placeholders later.
+      *(Completion pass: ten theme tracks, one per level.)*
 - [ ] Optional (only with all tests green and updated): rename storage keys in
       `settings.js` from `vsbeu.*` to `rtype.*` + update `tests/settings.spec.mjs`
       and the `window.vsbeuSettings` handle. **Deliberately deferred** — it's
@@ -475,31 +477,12 @@ Rows marked ⟶ were superseded by NARRATIVE_PLAN §2 when the story landed.
   The Hammer's 3-slug stagger and the violet-weakpoint 3× damage need state on
   the enemy object; added now (dormant) so Phase 6's boss and Phase 9's
   cast/interrupt don't have to retrofit the enemy struct.
-- **Phase 9 scope: the campaign is complete and clearable; several bespoke
-  story systems are approximated, and this is deliberate.** What is fully done:
-  all ten levels (Level 01 hand-authored; 02-10 generated from per-level themes
-  over the LEVELS_PLAN §4 pacing skeleton, every one stage-lint-clean), all ten
-  bosses (Boss 01 bespoke; 02-10 config-driven over a shared phase engine, each
-  with its bible name/HP/phase cadence and violet-core weakpoint, all verified
-  killable), campaign flow (clear → next → … → the BETWEEN ending + seal), the
-  S1 comms pool and every cutscene/boss-intro line VERBATIM from the bible, and
-  the S4 codex (all ten "Before" entries, unlocking with progress, browsable).
-  What is APPROXIMATED rather than bespoke, and why:
-  * **S3 cutscenes** are text-forward (comms lines over the gameplay/ending
-    backdrop) rather than staged voxel dioramas on the cine camera rig. The line
-    data is verbatim and complete, so upgrading to staged shots is additive.
-  * **S2 announced-emotion on trash elites** — the interrupt→violet-weakpoint
-    mechanic is fully built and live on Boss 01's mouths; regular wave elites do
-    not yet cast (the enemy struct carries the fields, dormant).
-  * **Per-level signature mechanics** (profanity.js, heat.js, asymmetry.js, the
-    √π gravity flip, the τ² state-snapshot time loop, the exact 0.5s self-mirror
-    scorer) are realized as the felt bullet PATTERN (words, symmetric walls,
-    fire-back mirror, timed phases) with the boss kept winnable via its core,
-    not as the full input-side systems. Each is a self-contained add-on the
-    generic engine already leaves room for.
-  These are honest simplifications to land a complete, tested, playable 10-level
-  credit; none block the "done when" (full credit clearable, BETWEEN plays,
-  every level stage-lint-green, codex reachable — all verified).
+- **Phase 9 scope (superseded by completion pass).** The earlier approximation
+  note is historical. See [COMPLETION.md](COMPLETION.md). S2–S10 now ship as
+  real modules under `src/shmup/systems/`; L02–L10 have per-level wave scripts
+  + `systems` bags; bosses carry hard-fail/timeout/predict/temporal hooks;
+  music has ten tracks. Remaining polish: staged voxel cutscene dioramas and
+  L02–10 parallax art (non-blocking).
 - **fx.js side-view explosions + petal-hiding landed early (Phases 2/0), so
   Phase 8's first two items were already done** — Phase 8 only had to add music,
   quality keys, the smoke spec, and docs.

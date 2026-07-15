@@ -233,7 +233,11 @@ export function updateWitness(w, dt, player, world, input) {
     // ── the Mirror Counter field
     if (w.counterT > 0) {
         const caught = allHits(world.enemyBullets, w.x, w.y, COUNTER_R);
-        for (const b of caught) reflectBullet(world, b, COUNTER_SPEED_MULT);
+        for (const b of caught) {
+            // S7: word-bullets pass through every force ability.
+            if (b.onlyProfanity || b.kind === KIND.WORD) continue;
+            reflectBullet(world, b, COUNTER_SPEED_MULT);
+        }
     }
 
     updateWitnessRig(w, dt, player);
@@ -260,6 +264,10 @@ function moveWithTerrain(w, dt, world) {
 function absorb(w, world) {
     const caught = allHits(world.enemyBullets, w.x, w.y, w.r);
     for (const b of caught) {
+        // S7 / L4: word-bullets are only cancelled by the Profanity Key — the
+        // Witness must let them through (bible §07).
+        if (b.onlyProfanity || b.kind === KIND.WORD) continue;
+
         if (b.bossShot) {
             // "Cannot absorb boss damage but will intercept one boss projectile
             // per cooldown cycle, costing 3 seconds of unavailable force."

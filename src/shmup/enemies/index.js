@@ -18,8 +18,11 @@ import { shatter, explode } from '../fx.js';
 import { sfx } from '../sfx.js';
 import { despawnX } from '../camera.js';
 import { decayStacks } from '../hammer.js';
+import { tickCast, interruptCast } from '../systems/cast.js';
+import { fireMimic } from '../systems/copybuffer.js';
 
 const MAX_ENEMIES = 64;
+const MIMIC_EVERY = 1.6;
 
 let _scene = null;
 const _types = {};        // type -> { geo, mat, voxMap, scale, barrel? }
@@ -142,7 +145,9 @@ export function spawnEnemy(pool, type, opts = {}) {
         patternState: { ...(def.patternState || {}), ...(opts.patternState || {}) },
         fire: def.fire ? FIRES[def.fire] : null,
         fireState: { ...(def.fireState || {}), ...(opts.fireState || {}) },
-        cast: opts.cast || null
+        cast: opts.cast || null,
+        castT: opts.cast ? (opts.cast.duration || 1.4) : 0,
+        mimic: !!opts.mimic
     });
     e.maxHp = e.hp;
 
@@ -204,7 +209,15 @@ export function killEnemy(pool, e, world) {
 
 /** Damage an enemy. Returns true if it died. */
 export function damageEnemy(pool, e, dmg, world) {
-    e.hp -= dmg;
+    // S2 interrupt: any hit mid-cast opens the violet weakpoint (3× already
+    // applied by the caller when weakpointT was open; the interrupt sets it).
+    if (interruptCast(e)) {
+        sfx.interrupt();
+        if (world && world.onCastInterrupted) world.onCastInterrupted(e);
+    }
+    // Asymmetry (L8) and other host multipliers land via world.damageMult.
+    const mult = (world && world.damageMult) ? world.damageMult() : 1;
+    e.hp -= dmg * mult;
     e.hitFlash = 0.08;
     if (e.hp <= 0) {
         killEnemy(pool, e, world);
@@ -226,8 +239,11 @@ export function updateEnemies(pool, dt, world) {
             e.staggered -= dt;
         } else {
             if (e.pattern) e.pattern(e, dt, world);
-            if (e.fire) e.fire(e, dt, world);
+            if (e.mimic) mimicFire(e, dt, world);
+            else if (e.fire) e.fire(e, dt, world);
         }
+
+        tickCast(e, dt);
 
         if (e.hitFlash > 0) e.hitFlash -= dt;
         if (e.weakpointT > 0) e.weakpointT -= dt;
@@ -237,6 +253,13 @@ export function updateEnemies(pool, dt, world) {
         if (e.mesh) {
             e.mesh.position.set(e.x, e.y, 0);
             if (e.barrel) e.barrel.rotation.z = e.aim;   // body still, barrel tracks
+            // Weakpoint / cast tell: pulse violet intensity on the hull scale.
+            if (e.weakpointT > 0) {
+                const pulse = 1 + Math.sin((world.elapsedT || 0) * 14) * 0.08;
+                e.mesh.scale.setScalar(pulse);
+            } else if (e.mesh.scale.x !== 1) {
+                e.mesh.scale.setScalar(1);
+            }
             if (e.pulses && e.pulses.length) {
                 // The mine's shell and the carrier's crystal breathe. It reads
                 // as "armed" and "carrying" respectively, with no HUD help.
@@ -259,4 +282,17 @@ export function clearEnemies(pool) {
 export function enemyAsset(type) {
     const def = ROSTER[type];
     return def ? _types[def.asset] : null;
+}
+
+/** S5: mimic enemies fire the player's lastShot buffer scaled 1.5×. */
+function mimicFire(e, dt, world) {
+    if (!e.fireState) e.fireState = {};
+    e.fireState._cd = (e.fireState._cd || 0) - dt;
+    if (e.fireState._cd > 0) return;
+    if (!world.bounds || e.x > world.bounds.maxX + 0.5) return;
+    if (world.player && world.player.cloaked > 0) return;
+    e.fireState._cd = MIMIC_EVERY;
+    const shot = world.player && world.player.lastShot;
+    fireMimic(world, e.x, e.y, shot, { scale: 1.5, dmg: 6 });
+    if (world.onEnemyShot) world.onEnemyShot(e);
 }

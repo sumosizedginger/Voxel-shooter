@@ -17,6 +17,7 @@ import { run as runDirector } from './director.spec.mjs';
 import { run as runStagelint } from './stagelint.spec.mjs';
 import { run as runComms } from './comms.spec.mjs';
 import { run as runCampaign } from './campaign.spec.mjs';
+import { run as runSystems } from './systems.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -70,6 +71,10 @@ async function main() {
     const campaign = createSink('campaign');
     runCampaign(campaign);
     sinks.push(campaign);
+
+    const systems = createSink('systems');
+    runSystems(systems);
+    sinks.push(systems);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');

@@ -257,6 +257,8 @@ function passive(type, s, dt, player, world) {
         // "reflects a portion of incoming fire back at the source"
         const near = allHits(world.enemyBullets, player.x, player.y, COUNCIL.mirror.radius);
         for (const b of near) {
+            // S7: word-bullets are only cancelled by the Profanity Key.
+            if (b.onlyProfanity || b.kind === KIND.WORD) continue;
             if (b.mirrorSeen) continue;
             b.mirrorSeen = true;                  // one roll per bullet, not per frame
             // Deterministic-ish roll: a real random here would make the same

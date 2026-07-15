@@ -95,6 +95,8 @@ export function respawnPlayer(p, x, y = 8) {
     p.weapon = 'pulse';
     p.charge = createCharge();
     p.lastShot = null;
+    p._wordLockT = 0;           // S7 SEAMLESS must not leak across lives
+    p.weaponsOffline = false;
     p.rig.visible = true;
     p.rig.rotation.set(0, 0, 0);
     p.parts.muzzle.scale.setScalar(0.001);
@@ -172,6 +174,10 @@ export function updatePlayer(p, dt, input, world) {
     }
     const stacks = Math.min(4, p.slowStacks.length);
     p.speedScale = Math.max(0, 1 - stacks * 0.15 - (stacks >= 4 ? 0.4 : 0));
+    // S6 arena slowStack (and any other host multiplier) applied after stacks.
+    if (world && world.modSpeedScale != null && world.modSpeedScale < 1) {
+        p.speedScale = Math.min(p.speedScale, world.modSpeedScale);
+    }
 
     // ── movement
     const b = playerBounds();
@@ -208,6 +214,11 @@ export function updatePlayer(p, dt, input, world) {
  * whole weapon interface. No weapon wheel, nothing to read.
  */
 function updateWeapons(p, dt, input, world) {
+    // L7 heat-death: weapons offline for 2 s at max heat.
+    if (p.weaponsOffline) {
+        p.parts.muzzle.scale.setScalar(0.001);
+        return;
+    }
     if (p.swapT > 0) {
         p.swapT -= dt;
         return;                       // 0.4 s of nothing. The switch has a price.

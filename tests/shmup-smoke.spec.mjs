@@ -37,7 +37,9 @@ export async function run(t) {
         page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
         await page.setViewport({ width: 1280, height: 720 });
 
-        await page.goto(server.url + 'game.html', { waitUntil: 'networkidle0', timeout: 60000 });
+        // skipcs=1 skips the S3 opening cutscene so the smoke test lands in PLAYING
+        // immediately (cutscenes are covered by systems.spec + manual play).
+        await page.goto(server.url + 'game.html?skipcs=1', { waitUntil: 'networkidle0', timeout: 60000 });
         await sleep(500);
 
         // Title screen is up and drawing.
@@ -48,7 +50,16 @@ export async function run(t) {
         await page.keyboard.press('KeyZ');
         await sleep(400);
         const playing = await page.evaluate(() => window.__gumoi.getState());
-        t.ok('fire launches into PLAYING', playing === 'PLAYING', 'state=' + playing);
+        t.ok('fire launches into PLAYING (or brief CUTSCENE)',
+            playing === 'PLAYING' || playing === 'CUTSCENE', 'state=' + playing);
+        // If a cutscene still started, skip it.
+        if (playing === 'CUTSCENE') {
+            await sleep(400);
+            await page.keyboard.press('Enter');
+            await sleep(300);
+        }
+        const afterCs = await page.evaluate(() => window.__gumoi.getState());
+        t.ok('reaches PLAYING after start', afterCs === 'PLAYING', 'state=' + afterCs);
 
         // Hold fire + drift up for a couple seconds to exercise shots/movement.
         await page.keyboard.down('KeyZ');

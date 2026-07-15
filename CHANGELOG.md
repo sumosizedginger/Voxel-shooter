@@ -40,8 +40,16 @@ The kit becomes a game: a horizontal R-Type III–style shmup built entirely und
   bible lines).
 - **Phase 8** — a data-driven music sequencer (`music.js`), quality-tier keys
   (1/2/3), volume-channel sync to settings, and `tests/shmup-smoke.spec.mjs`.
+- **Phase 9** — ten-level campaign, codex, BETWEEN ending, generic bosses 02–10.
+- **Completion pass** — full NARRATIVE S2–S10 systems under `src/shmup/systems/`
+  (cast/interrupt, cine cutscenes, mimic, arena modifiers, profanity key, input
+  recorder + shadow ghost, heat meter, movement predictor, temporal loop);
+  per-level wave scripts + `systems` bags; boss hard-fail/timeout/temporal
+  hooks; ten music tracks; cast tags + system meter HUD; `tests/systems.spec.mjs`;
+  [COMPLETION.md](COMPLETION.md).
 - New pure-node specs: `ship`, `assets`, `bullets`, `terrain`, `arsenal`,
-  `director`, `stagelint`, `comms` (all import-clean, browser-free).
+  `director`, `stagelint`, `comms`, `campaign`, `systems` (all import-clean,
+  browser-free).
 
 ## [0.2.0] — 2026-07-13
 

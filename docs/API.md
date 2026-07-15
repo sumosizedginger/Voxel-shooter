@@ -22,6 +22,7 @@ listed. Units: world units unless noted; angles in radians; durations in seconds
 - [combat/hitbox.js + combat/facing.js](#combathitboxjs--combatfacingjs)
 - [context.js](#contextjs)
 - [The `world` contract](#the-world-contract)
+- [shmup/systems (GUMOI S2–S10)](#shmupsystems-gumoi-s2s10)
 
 ---
 
@@ -272,3 +273,50 @@ a game that used a richer `world` (levels, waves, narrative state), only
 `world.level.theme`/`world.level._reflector` need to survive the port for
 `quality.js` to keep working — everything else was that game's own
 convention layered on top of the same empty object.
+
+---
+
+## `shmup/systems` (GUMOI S2–S10)
+
+Story and signature systems for **GUMOI: The Lattice Break**. All under
+`src/shmup/systems/`. Import from individual files or `systems/index.js`.
+Most modules are import-clean (no THREE) except `cutscene` (host injects
+cine helpers) and `words.makeWordTexture` (needs `document` + THREE).
+
+See [COMPLETION.md](../COMPLETION.md) and [NARRATIVE_PLAN.md](../NARRATIVE_PLAN.md) §4.
+
+| Module | Role | Key exports |
+|---|---|---|
+| `cast.js` | S2 cast/interrupt | `startCast`, `tickCast`, `interruptCast`, `maybeAssignCast` |
+| `copybuffer.js` | S5 mimic fire | `fireMimic`, `recordShot`, `clearBuffer` |
+| `modifiers.js` | S6 arena mods | `createModStack`, `pushMod`, `hasMod`, `transformInput`, `screenPushDelta` |
+| `profanity.js` | S7 Profanity Key | `createProfanity`, `tryProfanity`, `updateProfanity` |
+| `words.js` | S7 word effects | `WORD_EFFECTS`, `applyWordHit` (load-bearing); `makeWordTexture` optional visual helper |
+| `inputrec.js` | S8 recorder | `createRecorder`, `recordFrame`, `sampleAt` |
+| `heat.js` | L7 heat meter | `createHeat`, `updateHeat`, `heatWeaponsOffline` |
+| `predictor.js` | S9 motion class | `createPredictor`, `recordMotion`, `interceptAngle` |
+| `asymmetry.js` | L8 scorer | `createAsymmetry`, `updateAsymmetry`, `asymmetryDamageMult` |
+| `temporal.js` | S10 τ² loop | `createTemporalLoop`, `startTemporal`, `updateTemporal` |
+| `cutscene.js` | S3 cine player | `createCutscenePlayer`, `playCutscene`, `updateCutscene`, `levelOpenCutscene` |
+
+### Level `systems` bag
+
+Each campaign level may set:
+
+```
+systems: {
+  cast, mimic, modifiers, profanity, shadow, shadowDelay, shadowRamp,
+  contradiction, replayShots, heat, predictor, asymmetry, temporal
+}
+```
+
+`game.js` `armLevelSystems()` wires these into `world.*` for the boss/player loop.
+
+### Controls
+
+| Action | Default | Notes |
+|---|---|---|
+| Profanity Key | `F` / `G` | Cancels nearest `onlyProfanity` word-bullet (1.2 s CD). Witness will **not** absorb those. |
+| Skip cutscene | Fire / Enter | After 0.35 s grace in `CUTSCENE` state |
+| Author skip | `?skipcs=1` | Also implied by `?x=` |
+

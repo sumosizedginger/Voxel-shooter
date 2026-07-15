@@ -1,47 +1,97 @@
 // src/shmup/music.js
-// Purpose: a minimal looping sequencer on top of the kit's playTone.
-// Dependencies: audio/synth.js (playTone; channel 'music' so the music volume
-//   slider works — synth stays untouched)
+// Purpose: data-driven looping sequencer on playTone — one track per level theme.
+// Dependencies: audio/synth.js (injected playTone)
 //
-// PLAN.md Phase 8. Data-driven note arrays so a real composition can replace the
-// placeholder later. The register is the bible's: "High-Voltage Melancholy" — a
-// slow minor-key drone with a sparse arp, not a chiptune march. The Beige Slope
-// is a tunnel of soft voices all saying the same safe thing; the music should
-// feel like standing water.
-//
-// Notes are semitone offsets from a track root (A2 = 110 Hz). A step is a 16th.
+// PLAN.md Phase 8 + completion pass: per-level tracks (beige, parrot, jester, …).
 
 const A2 = 110;
 const semis = (root, n) => root * Math.pow(2, n / 12);
 
-// Minor scale degrees used across the tracks (A natural minor around A2).
-// step: semitone offset or null (rest). Each track advances one step per tick.
-const TRACKS = {
-    beige: {
-        bpm: 84,
+function makeTrack(bpm, bassSteps, arpSteps, padSteps, opts = {}) {
+    return {
+        bpm,
         stepsPerBeat: 4,
-        // A slow tonic-drone bass, dwelling on the root and the minor sixth.
         bass: {
-            wave: 'triangle', vol: 0.32, len: 0.9, lp: 500,
-            steps: [0, null, null, null, 0, null, null, null,
-                    -4, null, null, null, -4, null, null, null]  // A ... F
+            wave: opts.bassWave || 'triangle', vol: opts.bassVol || 0.32, len: 0.9, lp: opts.bassLp || 500,
+            steps: bassSteps
         },
-        // A sparse, mournful arp two octaves up — the "voices", thinned out.
         arp: {
-            wave: 'sine', vol: 0.12, len: 0.5, lp: 2200, octave: 24,
-            steps: [12, null, 15, null, null, 19, null, 12,
-                    null, null, 15, null, 17, null, null, null]
+            wave: opts.arpWave || 'sine', vol: opts.arpVol || 0.12, len: 0.5, lp: opts.arpLp || 2200, octave: 24,
+            steps: arpSteps
         },
-        // A single soft pad hit on the downbeat of every other bar.
         pad: {
-            wave: 'sawtooth', vol: 0.06, len: 2.4, lp: 700,
-            steps: [0, null, null, null, null, null, null, null,
-                    null, null, null, null, null, null, null, null]
+            wave: opts.padWave || 'sawtooth', vol: opts.padVol || 0.06, len: 2.4, lp: opts.padLp || 700,
+            steps: padSteps
         }
-    }
+    };
+}
+
+const TRACKS = {
+    // L1 — standing water, minor drone
+    beige: makeTrack(84,
+        [0, null, null, null, 0, null, null, null, -4, null, null, null, -4, null, null, null],
+        [12, null, 15, null, null, 19, null, 12, null, null, 15, null, 17, null, null, null],
+        [0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null]),
+    // L2 — mirror copy: slightly brighter, stuttering arp
+    parrot: makeTrack(92,
+        [0, null, 0, null, 3, null, null, null, 0, null, null, null, -2, null, null, null],
+        [12, 12, null, 15, null, 12, 19, null, 12, null, 15, 15, null, 17, null, null],
+        [0, null, null, null, null, null, null, null, 3, null, null, null, null, null, null, null],
+        { bassVol: 0.28, arpVol: 0.14 }),
+    // L3 — chaotic bounce
+    jester: makeTrack(110,
+        [0, null, 7, null, 3, null, 10, null, 0, null, 5, null, -2, null, 7, null],
+        [19, null, 15, 12, null, 22, null, 15, 19, null, null, 12, 15, null, 17, null],
+        [0, null, null, null, 7, null, null, null, null, null, null, null, null, null, null, null],
+        { bassWave: 'square', bassVol: 0.22, bassLp: 900, arpVol: 0.16, arpLp: 2800 }),
+    // L4 — dry corporate minor
+    suit: makeTrack(88,
+        [0, null, null, null, -5, null, null, null, 0, null, null, null, 2, null, null, null],
+        [null, 12, null, null, 15, null, 12, null, null, 14, null, null, 17, null, 12, null],
+        [0, null, null, null, null, null, null, null, -5, null, null, null, null, null, null, null],
+        { padVol: 0.08 }),
+    // L5 — glass / reverse feel (arp first)
+    mirror: makeTrack(86,
+        [0, null, null, 0, null, null, -3, null, 0, null, null, null, 5, null, null, null],
+        [null, null, 19, 15, 12, null, null, 15, 19, null, 12, null, null, 17, 15, null],
+        [5, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null],
+        { arpVol: 0.15, bassVol: 0.26 }),
+    // L6 — warm major-ish lift (still tense)
+    sun: makeTrack(90,
+        [0, null, null, null, 4, null, null, null, 7, null, null, null, 4, null, null, null],
+        [12, null, 16, null, 19, null, 16, null, 12, null, null, 19, null, 16, null, null],
+        [0, null, null, null, null, null, null, null, 4, null, null, null, null, null, null, null],
+        { bassVol: 0.3, padVol: 0.09, padLp: 900 }),
+    // L7 — industrial pulse
+    forge: makeTrack(100,
+        [0, 0, null, null, -5, -5, null, null, 0, null, 3, null, -7, null, null, null],
+        [12, null, null, 12, 15, null, null, 12, null, 19, null, 15, 12, null, null, null],
+        [0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+        { bassWave: 'sawtooth', bassVol: 0.24, bassLp: 600, arpWave: 'square', arpVol: 0.1 }),
+    // L8 — sparse, cold
+    drift: makeTrack(78,
+        [0, null, null, null, null, null, null, null, -2, null, null, null, null, null, null, null],
+        [null, null, 12, null, null, null, 15, null, null, null, 19, null, null, null, 12, null],
+        [0, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null],
+        { bassVol: 0.22, arpVol: 0.1, padVol: 0.05 }),
+    // L9 — darker parrot
+    shadow: makeTrack(94,
+        [0, null, null, -5, 0, null, null, null, -7, null, null, null, -5, null, null, null],
+        [12, null, 15, null, 12, null, 19, null, 10, null, 15, null, 12, null, 17, null],
+        [0, null, null, null, null, null, null, null, -5, null, null, null, null, null, null, null],
+        { bassVol: 0.3, arpVol: 0.13, padLp: 500 }),
+    // L10 — ritual, heavy root
+    seal: makeTrack(80,
+        [0, null, null, null, 0, null, null, null, 0, null, -5, null, -7, null, null, null],
+        [12, null, null, 15, null, null, 19, null, 12, null, 17, null, 15, null, 12, null],
+        [0, null, null, null, null, null, null, null, 0, null, null, null, null, null, null, null],
+        { bassVol: 0.36, bassLp: 400, arpVol: 0.11, padVol: 0.1 })
 };
 
-let playTone = null;             // injected, so this module has no hard audio dep
+// Fallback alias: unknown track names → beige
+TRACKS.default = TRACKS.beige;
+
+let playTone = null;
 let track = null;
 let stepDur = 0.15;
 let acc = 0;
@@ -49,15 +99,12 @@ let step = 0;
 let playing = false;
 let enabled = true;
 
-/** Wire the synth in (game.js passes audio/synth's playTone). Idempotent. */
 export function initMusic(playToneFn) {
     playTone = playToneFn;
 }
 
-/** Start a named track from the top. No-op if audio isn't wired yet. */
 export function playTrack(name) {
-    const t = TRACKS[name];
-    if (!t) return;
+    const t = TRACKS[name] || TRACKS.beige;
     track = t;
     stepDur = 60 / t.bpm / t.stepsPerBeat;
     acc = 0;
@@ -69,12 +116,10 @@ export function stopMusic() {
     playing = false;
 }
 
-/** Mute/unmute without losing the playhead (pause, reduceHorrorAudio, etc.). */
 export function setMusicEnabled(on) {
     enabled = !!on;
 }
 
-/** Advance the sequencer. Call every frame with dt (seconds). */
 export function updateMusic(dt) {
     if (!playing || !playTone || !track) return;
     acc += dt;
@@ -92,9 +137,8 @@ function emitStep(i) {
         const n = voice.steps[i];
         if (n == null) continue;
         const f = semis(A2, n + (voice.octave || 0));
-        // A gentle downward glide on each note — the melancholy, made audible.
         playTone(voice.wave, f, f * 0.94, voice.len, voice.vol, voice.lp, 'music');
     }
 }
 
-export const TRACK_NAMES = Object.keys(TRACKS);
+export const TRACK_NAMES = Object.keys(TRACKS).filter((k) => k !== 'default');

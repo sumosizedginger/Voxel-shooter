@@ -33,16 +33,24 @@ http://localhost:8799/game.html).
   spread / long slug, three slugs stagger a boss), the **Witness** force unit
   (four docks + orbit, absorb/reflect, three shard-levels, Mirror Counter), six
   **Council drones** (two slots, pre-mission loadout), and **Whisper Bits**.
-- **Level 01, The Beige Slope** — a data-driven level (director + formation
-  grammar + stage-lint) that teaches the interrupt mechanic, and a boss that is
-  a wall of announcing mouths: cut off the lie to open its violet weakpoint.
-- Checkpoint rewind, a full HUD, difficulty select, continue, and cockpit
-  comms — all story text verbatim from the [story bible](docs/story-bible.html).
+- **Ten-level campaign** — from The Beige Slope through The Corrupted Seal and
+  the BETWEEN ending. Per-level signature systems (mimic copy, arena modifiers,
+  Profanity Key **F**, delayed shadow, heat meter, asymmetry scorer, temporal
+  fold) documented in [COMPLETION.md](COMPLETION.md).
+- **Level 01, The Beige Slope** — teaches cast/interrupt: cut off an announced
+  emotion to open a violet weakpoint (live on trash elites and Boss 01 mouths).
+- Checkpoint rewind, full HUD, difficulty select, continue, cockpit comms, cine
+  opening cutscenes, and a codex — story text verbatim from the
+  [story bible](docs/story-bible.html).
 
 Authoring/debug: append `?x=<scrollX>` to start scrolled in, `?god=1` for an
-invincible tuning run (HUD-watermarked, score suppressed), and backquote toggles
-the debug overlay (collision wireframes, trigger timeline, fps/draw counts).
-Keys **1/2/3** switch quality tiers.
+invincible tuning run (HUD-watermarked, score suppressed), `?skipcs=1` to skip
+opening cutscenes, `?dev=1` to start in dev mode, and backquote toggles the
+debug overlay. Keys **1/2/3** switch quality tiers.
+
+**Secret dev mode:** tap **Ctrl** ten times (either side; gaps &gt; 2.5 s reset
+the count). Toggles god mode + debug + cutscene skip with a center watermark.
+While active: **Shift+1…0** jump to levels 1–10. Tap Ctrl ×10 again to leave.
 
 All game code lives under `src/shmup/` + `game.html`; the kit's `src/engine/`,
 `src/voxel/`, `src/combat/`, and `src/audio/` are untouched.
