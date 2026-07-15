@@ -1,6 +1,6 @@
 # GUMOI: The Lattice Break
 
-[![tests](https://github.com/sumosizedginger/My-Engine/actions/workflows/test.yml/badge.svg)](https://github.com/sumosizedginger/My-Engine/actions/workflows/test.yml)
+[![tests](https://github.com/sumosizedginger/Voxel-shooter/actions/workflows/test.yml/badge.svg)](https://github.com/sumosizedginger/Voxel-shooter/actions/workflows/test.yml)
 
 A horizontal-scrolling **R-Type III–style shmup** built on a zero-build, offline
 three.js voxel engine kit. The witness goes to war; the Council is the arsenal;
@@ -24,8 +24,10 @@ Story canon: [docs/story-bible.html](docs/story-bible.html). Build authority:
   Per-level systems: mimic copy, arena modifiers, Profanity Key (**F**), delayed
   shadow, heat meter, asymmetry scorer, temporal fold.
 - **Presentation** — theme parallax + terrain dressing on every stage, bespoke
-  boss silhouettes (02–10), cutscene voxel dioramas (GUMOI bust + stage prop),
-  readable word-bullet sprites, 48-step ABC music phrases, options/a11y/rebind UI.
+  boss silhouettes (02–10), cinematic cutscenes on every **level open and boss
+  entry** (voxel dioramas: GUMOI bust + boss silhouette; `reduceMotion` skips
+  them), readable word-bullet sprites, 48-step ABC music phrases, and a full
+  options/a11y/rebind UI.
 
 ### Controls
 
