@@ -71,6 +71,11 @@ async function main() {
         const smoke = createSink('smoke');
         await runSmoke(smoke);
         sinks.push(smoke);
+
+        const { run: runShmupSmoke } = await import('./shmup-smoke.spec.mjs');
+        const shmupSmoke = createSink('shmup-smoke');
+        await runShmupSmoke(shmupSmoke);
+        sinks.push(shmupSmoke);
     }
 
     writeStepSummary(sinks);

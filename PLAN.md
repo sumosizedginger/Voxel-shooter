@@ -348,23 +348,26 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
       camera — i.e. NO rotation.x, it already faces +Z when unrotated is
       wrong; set `rotation.x = 0` so the ring lies in XY). Muzzle flashes,
       beam charge glow (emissive sphere growing at the nose).
-- [ ] Hide the kit's ambient petal rain in space levels
+- [x] Hide the kit's ambient petal rain in space levels
       (`particles.petalMesh.visible = false`) or recolor/repurpose as star
       specks.
-- [ ] Quality tiers: verify `engine/quality.js` tiers still apply (showcase
+- [x] Quality tiers: verify `engine/quality.js` tiers still apply (showcase
       example binds them to keys 1/2/3 — do the same in a settings menu or
       keys).
-- [ ] Music: a minimal looping sequencer on top of `playTone` (bass line +
+- [x] Music: a minimal looping sequencer on top of `playTone` (bass line +
       arp, `channel: 'music'`) in `src/shmup/music.js`. Data-driven note
       arrays so real compositions can replace placeholders later.
 - [ ] Optional (only with all tests green and updated): rename storage keys in
       `settings.js` from `vsbeu.*` to `rtype.*` + update `tests/settings.spec.mjs`
-      and the `window.vsbeuSettings` handle.
-- [ ] `tests/shmup-smoke.spec.mjs`: puppeteer spec that loads `game.html`,
+      and the `window.vsbeuSettings` handle. **Deliberately deferred** — it's
+      marked optional, `settings.js` is engine code (§1 forbids touching it
+      without cause), and a rename would strand existing saves for zero player-
+      facing gain. Revisit only if the kit's identity is fully dropped.
+- [x] `tests/shmup-smoke.spec.mjs`: puppeteer spec that loads `game.html`,
       starts a game via synthetic input, waits ~2s, asserts frames are drawing
       (`renderer.info` via `window.__engineKit`) and no page errors — mirror
       `tests/smoke.spec.mjs`.
-- [ ] Update `README.md` (game section) and `CHANGELOG.md`.
+- [x] Update `README.md` (game section) and `CHANGELOG.md`.
 
 ### Phase 9 — Campaign buildout (the ten levels)
 
@@ -472,6 +475,11 @@ Rows marked ⟶ were superseded by NARRATIVE_PLAN §2 when the story landed.
   The Hammer's 3-slug stagger and the violet-weakpoint 3× damage need state on
   the enemy object; added now (dormant) so Phase 6's boss and Phase 9's
   cast/interrupt don't have to retrofit the enemy struct.
+- **fx.js side-view explosions + petal-hiding landed early (Phases 2/0), so
+  Phase 8's first two items were already done** — Phase 8 only had to add music,
+  quality keys, the smoke spec, and docs.
+- **Storage-key rename (Phase 8 optional) deliberately skipped** — see its note
+  in the Phase 8 checklist. Engine code, optional, and it would strand saves.
 - **Ship hull value raised (Phase 2).** NARRATIVE §3 wants a dark hull;
   SHIP_PLAN wants one that reads instantly against black. The first pass
   (0x2b3040) lost — she was a silhouette-shaped hole. Hull is now a mid-dark

@@ -42,7 +42,10 @@ import { tierProgress as pulseTierProgress } from './wavecannon.js';
 import {
     createBoss01, updateBoss01, hitMouth, applySlowShot, disposeBoss01
 } from './bosses/boss01.js';
-import { getSetting, setSetting, getScores, addScore } from '../engine/settings.js';
+import { getSetting, setSetting, getScores, addScore, onSettingChange } from '../engine/settings.js';
+import { setQuality } from '../engine/quality.js';
+import { playTone, setVolumes } from '../audio/synth.js';
+import { initMusic, playTrack, stopMusic, setMusicEnabled, updateMusic } from './music.js';
 import {
     createComms, pushComms, pushRandom, clearComms, updateComms,
     DEATH_LINES, VICTORY_LINES
@@ -93,6 +96,10 @@ function setState(next) {
     state = next;
     stateT = 0;
     world.state = next;
+    // Music follows state: it plays through the fight, mutes on pause (so the
+    // playhead survives), and stops on the menus.
+    setMusicEnabled(next === STATE.PLAYING || next === STATE.DEATH);
+    if (next === STATE.TITLE || next === STATE.GAMEOVER) stopMusic();
     renderOverlay();
 }
 
@@ -363,6 +370,7 @@ function startRun(atX = 0) {
     player.lives = START_LIVES;
     refreshPerLife(world.drones, player);        // the Ghost's phase charge
     setState(STATE.PLAYING);
+    playTrack(world.level.music || 'beige');
 }
 
 /**
@@ -495,6 +503,7 @@ function frame() {
 
     updateInput(dt);
     if (input.debugPressed) debugOn = !debugOn;
+    updateMusic(dt);
 
     const confirm = input.firePressed || input.skipPressed;
 
@@ -647,6 +656,23 @@ export function boot(domRefs) {
     runner.onBoss = (id) => { pendingBoss = id; };     // Phase 6 hands off here
     runner.onEnd = () => { levelCleared = true; };
 
+    // ── audio: sync the synth's volume channels to settings, and keep them in
+    //    sync when a settings menu changes them. synth stays dependency-free.
+    initMusic(playTone);
+    syncVolumes();
+    onSettingChange((key) => {
+        if (key === 'masterVolume' || key === 'sfxVolume' || key === 'musicVolume') syncVolumes();
+        if (key === 'reduceHorrorAudio') syncVolumes();
+    });
+
+    // ── quality tiers (PLAN.md Phase 8): keys 1/2/3 pick a tier, like the
+    //    showcase example. A settings menu can call setQuality() the same way.
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Digit1') setQuality('low');
+        else if (e.code === 'Digit2') setQuality('high');
+        else if (e.code === 'Digit3') setQuality('ultra');
+    });
+
     // ── authoring tools (LEVELS_PLAN §8): ?x= start scrolled, ?god=1 invincible.
     const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
     startAtX = Math.max(0, Number(params.get('x')) || 0);
@@ -675,3 +701,12 @@ let continueX = 0;
 let startAtX = 0;
 let godMode = false;
 let comms = createComms();
+
+/** Push settings volumes into the synth. reduceHorrorAudio softens the music. */
+function syncVolumes() {
+    setVolumes({
+        master: getSetting('masterVolume'),
+        sfx: getSetting('sfxVolume'),
+        music: getSetting('musicVolume') * (getSetting('reduceHorrorAudio') ? 0.5 : 1)
+    });
+}

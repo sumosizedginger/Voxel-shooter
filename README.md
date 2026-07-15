@@ -18,6 +18,35 @@ This is a starting point, not a framework. Copy it, rename it, hack it.
 |---|---|---|
 | [![smoke test](docs/media/smoke.png)](index.html) | [![top-down example](docs/media/topdown.png)](examples/topdown-8way.html) | [![voxel showcase](docs/media/showcase.png)](examples/voxel-showcase.html) |
 
+## The game: GUMOI — The Lattice Break
+
+Built on top of the kit: a horizontal-scrolling R-Type III–style shmup. The
+witness goes to war; the Council is the arsenal; the seal is the target. Play
+it at [`game.html`](game.html) (`npm run serve`, then open
+http://localhost:8799/game.html).
+
+- **The Vessel** — a tiny hit circle in a big ship; her kintsugi scars brighten
+  as hull integrity falls (that *is* the damage bar). Collisions are lethal;
+  enemy fire chips.
+- **The arsenal is the Council** — the three-tier **Siren Pulse** (tier 3 needs
+  the Witness at level 2 and roots you 1.4s), the **Hammer Round** (close
+  spread / long slug, three slugs stagger a boss), the **Witness** force unit
+  (four docks + orbit, absorb/reflect, three shard-levels, Mirror Counter), six
+  **Council drones** (two slots, pre-mission loadout), and **Whisper Bits**.
+- **Level 01, The Beige Slope** — a data-driven level (director + formation
+  grammar + stage-lint) that teaches the interrupt mechanic, and a boss that is
+  a wall of announcing mouths: cut off the lie to open its violet weakpoint.
+- Checkpoint rewind, a full HUD, difficulty select, continue, and cockpit
+  comms — all story text verbatim from the [story bible](docs/story-bible.html).
+
+Authoring/debug: append `?x=<scrollX>` to start scrolled in, `?god=1` for an
+invincible tuning run (HUD-watermarked, score suppressed), and backquote toggles
+the debug overlay (collision wireframes, trigger timeline, fps/draw counts).
+Keys **1/2/3** switch quality tiers.
+
+All game code lives under `src/shmup/` + `game.html`; the kit's `src/engine/`,
+`src/voxel/`, `src/combat/`, and `src/audio/` are untouched.
+
 ## Boot it
 
 ```
