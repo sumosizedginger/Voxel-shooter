@@ -66,7 +66,8 @@ export function makeLevel(id) {
         { atX: 246, type: 'pickup', kind: 'shard', y: 8, recoveryOnly: true },
         { atX: 258, type: 'wave', formation: 'escort', enemy: e0, count: 2, y: 9 },
         { atX: 276, type: 'pickup', kind: 'shard', y: 5 },
-        { atX: 300, type: 'speed', scrollSpeed: 0 },
+        // No pre-boss `speed 0`: the boss trigger locks the scroll itself, and a
+        // freeze before x=306 would stop the scroll short of the boss trigger.
         { atX: 300, type: 'dialogue', id: 'L' + pad(id) + '_boss' },
         { atX: 306, type: 'boss', id: theme.boss },
         { atX: 320, type: 'end' }

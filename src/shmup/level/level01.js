@@ -92,8 +92,10 @@ export const LEVEL01 = {
         { atX: 258, type: 'wave', formation: 'escort', enemy: 'drone', count: 2, y: 9 },   // last shard chance
         { atX: 276, type: 'pickup', kind: 'shard', y: 5 },
 
-        // ── boss entry: hold, dread beat, then the wall (LEVELS_PLAN §4)
-        { atX: 300, type: 'speed', scrollSpeed: 0 },
+        // ── boss entry (LEVELS_PLAN §4). The long empty scroll from the last
+        //    wave (~276) to here IS the dread beat; the boss trigger locks the
+        //    scroll itself, so a pre-boss `speed 0` must NOT come first — it
+        //    would freeze the scroll before it ever reached the boss.
         { atX: 300, type: 'dialogue', id: 'L01_boss' },
         { atX: 306, type: 'boss', id: 'boss01' },
         { atX: 320, type: 'end' }
