@@ -6,13 +6,14 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createSink, summarize } from './harness.mjs';
-import { LEVEL01 } from '../src/shmup/level/level01.js';
+import { LEVELS as CAMPAIGN } from '../src/shmup/level/campaign.js';
 import { TRIGGER_TYPES } from '../src/shmup/level/director.js';
 import { FORMATION_NAMES } from '../src/shmup/level/formations.js';
 import { CHUNK_NAMES } from '../src/shmup/assets/terrain.js';
 import { ENEMY_TYPES } from '../src/shmup/enemies/roster.js';
 
-const LEVELS = [LEVEL01];
+// The whole campaign — Level 01 (bespoke) plus the nine generated levels.
+const LEVELS = CAMPAIGN.filter(Boolean);
 
 // Playfield band (PLAN.md §2.1), with a little slack for entry arcs.
 const PLAY_MIN_Y = 0, PLAY_MAX_Y = 16;

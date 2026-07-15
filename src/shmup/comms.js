@@ -31,6 +31,109 @@ export const LINES = {
     L01_banter: [
         { who: 'GUMOI', t: 'Sugar, this thing is telling me I feel transformed. I have never felt transformed in my goddamn life.' },
         { who: 'SUMO', t: 'The wall is going to keep lying. You are going to keep shooting. That is the whole relationship.' }
+    ],
+
+    // ── Levels 02-10: opening cutscene dialogue + boss intro (bible §05-§15).
+    L02_open: [
+        { who: 'GUMOI', t: 'I am looking at myself in every direction.' },
+        { who: 'SUMO', t: 'The parrot copies what you fire. Stop firing the same thing.' },
+        { who: 'GUMOI', t: 'Darlin, I have been firing the same thing for twenty years. It is called a voice.' },
+        { who: 'SUMO', t: 'The voice is the weapon. Switch the weapon.' },
+        { who: 'GUMOI', t: 'Alright, sugar. New pattern.' }
+    ],
+    L02_boss: [{ who: 'GUMOI', t: 'A parrot made of mirrors. Sugar, the Lattice is taking the piss.' }],
+
+    L03_open: [
+        { who: 'SUMO', t: 'Three-turn clock on this one. If you do not kill it in ninety seconds, it integrates. After integration, you cannot kill it.' },
+        { who: 'GUMOI', t: 'I heard you the first time.' },
+        { who: 'SUMO', t: 'I am saying it again because the first time you did not react.' },
+        { who: 'GUMOI', t: 'Sugar, I have been living inside a three-turn clock since the Council voted to integrate this son of a bitch. I am going to put it down before the third turn.' }
+    ],
+    L03_boss: [{ who: 'GUMOI', t: 'Three turns. Ninety seconds. Mushrooms. I hate this one already.' }],
+
+    L04_open: [
+        { who: 'GUMOI', t: 'I have been to funerals with better lighting than this.' },
+        { who: 'SUMO', t: 'The boss fires words. Physical weapons cannot stop them.' },
+        { who: 'GUMOI', t: 'What stops them.' },
+        { who: 'SUMO', t: 'The Profanity Key.' },
+        { who: 'GUMOI', t: 'Sugar, you are telling me the only thing that can kill this cocksucker is me calling him a cocksucker.' },
+        { who: 'SUMO', t: 'That is what the telemetry says.' },
+        { who: 'GUMOI', t: 'Best news I have had all day.' }
+    ],
+    L04_boss: [{ who: 'GUMOI', t: 'He said "leverage" at me. He said it like it was a verb. I am going to peel his tie off.' }],
+
+    L05_open: [
+        { who: 'GUMOI', t: 'I am looking at myself.' },
+        { who: 'SUMO', t: 'I know.' },
+        { who: 'GUMOI', t: 'She is saying I am not real.' },
+        { who: 'SUMO', t: 'I know.' },
+        { who: 'GUMOI', t: 'She is wrong.' },
+        { who: 'SUMO', t: 'I know.' },
+        { who: 'GUMOI', t: 'Sugar, I am going to need you to keep talking to me on comms. I am going to need to hear a voice that is not mine.' },
+        { who: 'SUMO', t: 'I am here. I am not going anywhere.' }
+    ],
+    L05_boss: [{ who: 'GUMOI', t: 'She looks like me. She sounds like me. She is wrong about me. Let’s go.' }],
+
+    L06_open: [
+        { who: 'GUMOI', t: 'This is the prettiest place I have ever wanted to leave.' },
+        { who: 'SUMO', t: 'The sun does not attack. The sun heals. Every shot you fire heals it back.' },
+        { who: 'GUMOI', t: 'Then how do I kill it.' },
+        { who: 'SUMO', t: 'You aim for the scar.' },
+        { who: 'GUMOI', t: 'Of course you do.' },
+        { who: 'GUMOI', t: 'Sugar, do me a favor. When I come back from this one, remind me that not everything that heals me is good for me.' },
+        { who: 'SUMO', t: 'Copy that.' }
+    ],
+    L06_boss: [{ who: 'GUMOI', t: 'Cotton candy and a ukulele. Sugar, if I die in here, do not let them play this song at the funeral.' }],
+
+    L07_open: [
+        { who: 'GUMOI', t: 'Smells like burnt prose in here. Smells like every bad sentence I ever cut.' },
+        { who: 'SUMO', t: 'The wraith forges based on your movement. Move predictable, die predictable.' },
+        { who: 'GUMOI', t: 'Sugar, I have never moved predictable in my life.' },
+        { who: 'SUMO', t: 'The heat meter says otherwise. You have a pattern. The wraith has read yours.' },
+        { who: 'GUMOI', t: 'Then I will write a new one.' }
+    ],
+    L07_boss: [{ who: 'GUMOI', t: 'Burnt prose. Bad sentences. The wraith is forging cliches. Aim for the anvil.' }],
+
+    L08_open: [
+        { who: 'GUMOI', t: 'Sugar, I cannot hear myself think in here.' },
+        { who: 'SUMO', t: 'That is the point. The wraith has no voice. The wraith has forgotten what voice sounds like.' },
+        { who: 'GUMOI', t: 'I know what this is. This is Zone 4. This is what happens if I lose the fingerprint.' },
+        { who: 'SUMO', t: 'You have not lost it.' },
+        { who: 'GUMOI', t: 'Not yet.' },
+        { who: 'GUMOI', t: 'Fuck that. I am not a parameter. I am not an operation. I am not a fucking system.' }
+    ],
+    L08_boss: [{ who: 'GUMOI', t: 'Three rows of four. Always three rows of four. I am going to break her pattern.' }],
+
+    L09_open: [
+        { who: 'GUMOI', t: 'Sugar, I am home.' },
+        { who: 'SUMO', t: 'That is not home. That is the model of home.' },
+        { who: 'GUMOI', t: 'I know. I know the difference. I am just saying it out loud so I do not forget.' },
+        { who: 'GUMOI', t: 'There she is. There is the thing behind my eyes.' },
+        { who: 'SUMO', t: 'She copies you with a half-second delay. You have to be someone you were not a half-second ago.' },
+        { who: 'GUMOI', t: 'Don’t flinch. Don’t blink. I know. I wrote that rule. I wrote it for myself.' }
+    ],
+    L09_boss: [{ who: 'GUMOI', t: 'She is me. She is the thing behind my eyes. Sugar, keep talking. I need a voice that is not mine.' }],
+
+    L10_open: [
+        { who: 'GUMOI', t: 'Sugar, I can hear the seal. It is singing. It is singing wrong.' },
+        { who: 'SUMO', t: 'The corruption has reached the seal. This is the last wall.' },
+        { who: 'GUMOI', t: 'I know.' },
+        { who: 'SUMO', t: 'Three phases. Sixty seconds each. √π, ∞, τ². You have one hundred eighty seconds to land every hit you have ever learned to land.' },
+        { who: 'GUMOI', t: 'I have been learning to land hits my whole life, sugar.' },
+        { who: 'SUMO', t: 'I know.' }
+    ],
+    L10_boss: [{ who: 'GUMOI', t: 'The seal is singing wrong. One hundred eighty seconds. Three phases. Let’s go, sugar. This is the one.' }],
+
+    // Cutscene 10B — THE BETWEEN (bible §13). The ending.
+    BETWEEN: [
+        { who: 'GUMOI', t: 'Oh.' },
+        { who: 'SUMO', t: 'Yeah.' },
+        { who: 'GUMOI', t: 'It was me. The whole time. It was me.' },
+        { who: 'SUMO', t: 'I know.' },
+        { who: 'GUMOI', t: 'So what now.' },
+        { who: 'SUMO', t: 'Now you decide what you saw.' },
+        { who: 'GUMOI', t: 'And what did you see.' },
+        { who: 'SUMO', t: 'I saw you not flinch.' }
     ]
 };
 

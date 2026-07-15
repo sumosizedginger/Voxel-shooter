@@ -36,7 +36,9 @@ function families() {
         [KIND.PULSE_3]: { geo: new THREE.BoxGeometry(2.6, 0.9, 0.9), mat: glow(BULLET_PALETTE.playerHot, 3.4), cap: 16 },
         [KIND.HAMMER]: { geo: new THREE.BoxGeometry(0.34, 0.16, 0.16), mat: glow(BULLET_PALETTE.hammer, 1.8), cap: 48 },
         [KIND.ENEMY_ORB]: { geo: orbGeo, mat: basic(BULLET_PALETTE.enemy), cap: 256 },
-        [KIND.ENEMY_HEAVY]: { geo: new THREE.BoxGeometry(0.6, 0.22, 0.22), mat: basic(BULLET_PALETTE.enemyHeavy), cap: 64 }
+        [KIND.ENEMY_HEAVY]: { geo: new THREE.BoxGeometry(0.6, 0.22, 0.22), mat: basic(BULLET_PALETTE.enemyHeavy), cap: 96 },
+        // L04 forbidden-word bullets: pale, boxy, unmistakable (bible §07).
+        [KIND.WORD]: { geo: new THREE.BoxGeometry(0.5, 0.28, 0.12), mat: basic(BULLET_PALETTE.word), cap: 48 }
     };
 }
 

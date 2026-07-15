@@ -21,7 +21,6 @@ import {
 import { Terrain } from './terrain.js';
 import { createLevelRunner, tickLevelRunner, disposeLevelRunner, levelTimeline } from './level/runner.js';
 import { levelProgress } from './level/director.js';
-import { LEVEL01 } from './level/level01.js';
 import { createPool, updateBullets, collideBullets, clearPool, firstHit, kill } from './bullets.js';
 import { BulletRenderer } from './bulletmesh.js';
 import {
@@ -40,8 +39,10 @@ import { createPickups, updatePickups, clearPickups, clearBits } from './powerup
 import { applySlug, decayStacks } from './hammer.js';
 import { tierProgress as pulseTierProgress } from './wavecannon.js';
 import {
-    createBoss01, updateBoss01, hitMouth, applySlowShot, disposeBoss01
-} from './bosses/boss01.js';
+    createBoss, updateBoss, hitBossPart, applySlowShot, disposeBoss
+} from './bosses/index.js';
+import { LEVELS, LAST_LEVEL, levelToPlay, recordClear } from './level/campaign.js';
+import { unlockedCodex } from './codex.js';
 import { getSetting, setSetting, getScores, addScore, onSettingChange } from '../engine/settings.js';
 import { setQuality } from '../engine/quality.js';
 import { playTone, setVolumes } from '../audio/synth.js';
@@ -161,7 +162,7 @@ function resolveCollisions(dt) {
     // never touch the enemy pool's live-count; §Phase 6).
     if (world.boss && !world.boss.dead) {
         collideBullets(world.bullets, world.boss.mouths, (b, mouth) => {
-            hitMouth(mouth, b.dmg, world);
+            hitBossPart(mouth, b.dmg, world);
         });
     }
 
@@ -202,28 +203,56 @@ function resolveCollisions(dt) {
 // ── DOM ────────────────────────────────────────────────────────────────────
 function renderOverlay() {
     if (!dom.overlay) return;
-    const show = state === STATE.TITLE || state === STATE.PAUSED || state === STATE.GAMEOVER;
+    const show = state === STATE.TITLE || state === STATE.PAUSED
+        || state === STATE.GAMEOVER || state === STATE_BETWEEN;
     dom.overlay.style.display = show ? 'flex' : 'none';
+    // The BETWEEN is the non-dual white; every other overlay sits on the dark.
+    dom.overlay.classList.toggle('white', state === STATE_BETWEEN);
+
+    if (state === STATE_BETWEEN) {
+        // The seal, clean. √π ∞ τ². It is the last frame of the game (bible §13).
+        dom.overlayTitle.innerHTML = '<span class="seal">√π ∞ τ²</span>';
+        dom.overlaySub.innerHTML = 'THE WITNESS IS THE SEAL<br><br>'
+            + '<span class="dim">GUMOI: The Lattice Break</span><br>'
+            + '<span class="dim">the recursion is both spiral and ascent</span><br><br>'
+            + '<span class="dim">score ' + world.score + ' &middot; press any key</span>';
+        return;
+    }
     if (state === STATE.TITLE) {
+        if (codexOpen) {
+            const entries = unlockedCodex();
+            const e = entries[Math.min(codexIndex, entries.length - 1)];
+            dom.overlayTitle.textContent = 'CODEX';
+            dom.overlaySub.innerHTML = e
+                ? '<span class="sel">' + escapeHtml(e.title) + '</span>'
+                    + ' <span class="dim">(' + (codexIndex + 1) + '/' + entries.length + ')</span><br><br>'
+                    + '<span class="codexbody">' + escapeHtml(e.text) + '</span><br><br>'
+                    + '<span class="dim">&larr;&rarr; browse &middot; drone key to close</span>'
+                : '<span class="dim">no entries yet — clear a level</span>';
+            return;
+        }
         dom.overlayTitle.textContent = 'GUMOI';
         const diff = getSetting('difficulty');
         const row = DIFFICULTIES.map((d) =>
             (d === diff ? '<b class="sel">' + d.toUpperCase() + '</b>' : d.toUpperCase())
         ).join('   ');
         const hi = getScores()[0];
+        const haveCodex = unlockedCodex().length > 0;
         dom.overlaySub.innerHTML =
             'THE LATTICE BREAK<br><br>'
             + '<span class="dim">&larr; difficulty &rarr;</span><br>' + row + '<br><br>'
             + (hi ? '<span class="dim">HI-SCORE ' + hi.score + '</span><br>' : '')
-            + '<span class="dim">fire / enter to launch</span>';
+            + '<span class="dim">fire / enter to launch'
+            + (haveCodex ? ' &middot; drone key: codex' : '') + '</span>';
     } else if (state === STATE.PAUSED) {
         dom.overlayTitle.textContent = 'PAUSED';
         dom.overlaySub.innerHTML = '<span class="dim">esc / p to resume</span>';
     } else if (state === STATE.GAMEOVER) {
         if (stageClear) {
             dom.overlayTitle.textContent = 'STAGE CLEAR';
-            dom.overlaySub.innerHTML = 'THE BEIGE SLOPE<br><br>SCORE ' + world.score
-                + '<br><br><span class="dim">press any key</span>';
+            const name = (LEVELS[currentLevelId] && LEVELS[currentLevelId].name) || '';
+            dom.overlaySub.innerHTML = name + '<br><br>SCORE ' + world.score
+                + '<br><br><span class="dim">fire to continue &rarr; next level</span>';
         } else {
             dom.overlayTitle.textContent = 'GAME OVER';
             const opt = (i, label) => (gameOverChoice === i
@@ -347,9 +376,27 @@ let pickupFlash = '';
 let pickupFlashT = 0;
 
 // ── lifecycle ──────────────────────────────────────────────────────────────
-function startRun(atX = 0) {
+
+/** (Re)build the level runner for level `id`. Disposes the previous one. */
+function loadLevel(id) {
+    if (runner) disposeLevelRunner(runner);
+    if (world.boss) { disposeBoss(world.boss, scene); world.boss = null; }
+    const level = LEVELS[id];
+    world.level = level;
+    currentLevelId = id;
+    runner = createLevelRunner(level, scene, world);
+    runner.onDialogue = (lineId) => { pushComms(comms, lineId); };
+    runner.onBoss = (bid) => { pendingBoss = bid; };
+    runner.onEnd = () => { levelCleared = true; };
+    return runner;
+}
+
+/** Start (or restart) a level from scratch. `atX` for continue / authoring. */
+function startRun(atX = 0, id = null) {
+    if (id != null && id !== currentLevelId) loadLevel(id);
     world.lives = START_LIVES;
-    world.score = 0;
+    world.score = keepScore ? world.score : 0;
+    keepScore = false;
     clearPool(world.bullets);
     clearPool(world.enemyBullets);
     clearEnemies(world.enemies);
@@ -358,7 +405,7 @@ function startRun(atX = 0) {
     clearFx();
     clearShake();
     clearComms(comms);
-    if (world.boss) { disposeBoss01(world.boss, scene); world.boss = null; }
+    if (world.boss) { disposeBoss(world.boss, scene); world.boss = null; }
     pendingBoss = null;
     stageClear = false;
     world.deaths = 0;
@@ -395,7 +442,7 @@ function respawnAfterDeath() {
     clearShake();
     // A boss fight lost rewinds to the pre-boss checkpoint (F4); tear the wall
     // down so re-reaching the boss trigger builds a fresh one.
-    if (world.boss) { disposeBoss01(world.boss, scene); world.boss = null; }
+    if (world.boss) { disposeBoss(world.boss, scene); world.boss = null; }
     pendingBoss = null;
 
     const backTo = lastCheckpointX();
@@ -448,29 +495,42 @@ function tickPlaying(dt) {
 
     // The boss owns the fight while it lives (ticked before collisions so its
     // mouths and slow-shots are current when resolveCollisions runs).
-    if (world.boss) updateBoss01(world.boss, dt, world);
+    if (world.boss) updateBoss(world.boss, dt, world);
 
     resolveCollisions(dt);
 
-    // The boss trigger hands control to the boss module.
-    if (pendingBoss === 'boss01') {
+    // The boss trigger hands control to the boss module (any boss id).
+    if (pendingBoss) {
+        const id = pendingBoss;
         pendingBoss = null;
-        if (world.boss) disposeBoss01(world.boss, scene);
-        createBoss01(scene, world);
+        if (world.boss) disposeBoss(world.boss, scene);
+        createBoss(id, scene, world);
     }
     // The `end` trigger fires ~14u after the boss trigger; ignore it until the
-    // wall is actually down (world.onBossCleared drives the real clear).
+    // boss is actually down (world.onBossCleared drives the real clear).
     levelCleared = false;
 }
 
 function onLevelClear() {
     world.score += 5000;                        // levelClearBonus
-    stageClear = true;
-    if (!godMode) addScore({ score: world.score, hero: 'GUMOI' });
-    pushComms(comms, 'L01_banter');             // placeholder victory beat
+    if (!godMode) {
+        recordClear(currentLevelId);            // unlock the next level + its codex
+        addScore({ score: world.score, hero: 'GUMOI' });
+    }
+
+    if (currentLevelId >= LAST_LEVEL) {
+        // The last wall is down. The BETWEEN plays (bible §13, cutscene 10B).
+        clearComms(comms);
+        pushComms(comms, 'BETWEEN');
+        enterBetween();
+        return;
+    }
+
+    // Advance to the next level via a stage-clear beat.
     pushRandom(comms, VICTORY_LINES);
-    // Phase 9A routes this to the next level in the campaign.
-    setState(STATE.GAMEOVER);
+    stageClear = true;
+    nextLevelId = currentLevelId + 1;
+    setState(STATE.GAMEOVER);                   // stage-clear screen; fire -> next
 }
 
 /** Lives exhausted. Record the run, remember where a continue would resume. */
@@ -510,6 +570,20 @@ function frame() {
     switch (state) {
         case STATE.TITLE: {
             const d = menuTick();
+            if (codexOpen) {
+                // Browse the codex: left/right through unlocked entries, drone
+                // key or pause closes it.
+                const entries = unlockedCodex();
+                if (d !== 0 && entries.length) {
+                    codexIndex = (codexIndex + d + entries.length) % entries.length;
+                    sfx.uiMove(); renderOverlay();
+                }
+                if (input.dronePressed || input.pausePressed) {
+                    codexOpen = false; sfx.uiMove(); renderOverlay();
+                }
+                consumeAnyKey();
+                break;
+            }
             if (d !== 0) {
                 const i = DIFFICULTIES.indexOf(getSetting('difficulty'));
                 const ni = Math.max(0, Math.min(DIFFICULTIES.length - 1, i + d));
@@ -517,10 +591,17 @@ function frame() {
                 sfx.uiMove();
                 renderOverlay();
             }
+            if (input.dronePressed && unlockedCodex().length) {
+                codexOpen = true; codexIndex = 0; sfx.uiConfirm(); renderOverlay();
+                consumeAnyKey();
+                break;
+            }
             if (confirm) {
                 initAudio();                        // G2: needs a user gesture
                 sfx.uiConfirm();
-                startRun(startAtX);
+                // Resume at the furthest level reached (?x= forces a scroll).
+                const id = startAtX > 0 ? currentLevelId : levelToPlay();
+                startRun(startAtX, id);
             }
             consumeAnyKey();
             break;
@@ -556,9 +637,13 @@ function frame() {
         case STATE.GAMEOVER: {
             if (stateT <= 0.6) { consumeAnyKey(); break; }
             if (stageClear) {
-                // Stage clear: press anything to return to the title (Phase 9A
-                // routes this to the next level in the campaign).
-                if (confirm || consumeAnyKey()) setState(STATE.TITLE);
+                // Stage clear: fire advances to the next level, carrying score.
+                if (confirm) {
+                    sfx.uiConfirm();
+                    keepScore = true;
+                    startRun(0, nextLevelId);
+                }
+                consumeAnyKey();
                 break;
             }
             // Game over: CONTINUE (restart at the checkpoint, score reset) / QUIT.
@@ -567,11 +652,23 @@ function frame() {
             if (confirm) {
                 if (gameOverChoice === 0) {
                     sfx.uiConfirm();
-                    startRun(continueX);           // continue from the last checkpoint
+                    startRun(continueX, currentLevelId);   // continue from the checkpoint
                 } else {
                     setState(STATE.TITLE);
                 }
             }
+            consumeAnyKey();
+            break;
+        }
+
+        case STATE_BETWEEN: {
+            // The ending: the white, the seal, the last exchange, then credits.
+            betweenT += dt;
+            updateComms(comms, dt, input.skipPressed);
+            renderComms();
+            // After the exchange plays out and a beat passes, a press returns
+            // to the title. The seal remains the last frame until then.
+            if (betweenT > 6 && (confirm || consumeAnyKey())) setState(STATE.TITLE);
             consumeAnyKey();
             break;
         }
@@ -649,12 +746,9 @@ export function boot(domRefs) {
     // The boss module calls this when the wall finishes its death throes.
     world.onBossCleared = () => onLevelClear();
 
-    // ── the level. Phase 5 ships Level 01; Phase 9A adds the campaign selector.
-    world.level = LEVEL01;
-    runner = createLevelRunner(LEVEL01, scene, world);
-    runner.onDialogue = (id) => { pushComms(comms, id); };   // S1 comms lines
-    runner.onBoss = (id) => { pendingBoss = id; };     // Phase 6 hands off here
-    runner.onEnd = () => { levelCleared = true; };
+    // ── the level. Load the furthest level the player has reached (campaign
+    //    progress); the title's launch re-resolves it in case progress advanced.
+    loadLevel(levelToPlay());
 
     // ── audio: sync the synth's volume channels to settings, and keep them in
     //    sync when a settings menu changes them. synth stays dependency-free.
@@ -701,6 +795,29 @@ let continueX = 0;
 let startAtX = 0;
 let godMode = false;
 let comms = createComms();
+let currentLevelId = 1;
+let nextLevelId = 0;
+let keepScore = false;          // carry score across a stage-clear transition
+let betweenT = 0;               // the ending's own clock
+let codexOpen = false;
+let codexIndex = 0;
+
+const STATE_BETWEEN = 'BETWEEN';
+
+/** The BETWEEN ending (bible §13). The white. The seal. The credits. */
+function enterBetween() {
+    betweenT = 0;
+    keepScore = false;
+    if (!godMode) recordClear(LAST_LEVEL);
+    if (!godMode) addScore({ score: world.score, hero: 'GUMOI', ending: 'between' });
+    // Wipe the fight; the arena goes to the non-dual white.
+    clearEnemies(world.enemies);
+    clearPool(world.enemyBullets);
+    clearPool(world.bullets);
+    if (world.boss) { disposeBoss(world.boss, scene); world.boss = null; }
+    stopMusic();
+    setState(STATE_BETWEEN);
+}
 
 /** Push settings volumes into the synth. reduceHorrorAudio softens the music. */
 function syncVolumes() {
