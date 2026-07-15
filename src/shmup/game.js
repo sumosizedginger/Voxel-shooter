@@ -18,9 +18,10 @@ import {
     updateShmupCamera, setScrollX, playerBounds, spawnX, despawnX,
     scrollX, PLAY_Y, PLAY_MIN_Y, PLAY_MAX_Y, clearShake, shakeCamera
 } from './camera.js';
-import { TERRAIN_SCALE } from './assets/terrain.js';
 import { Terrain } from './terrain.js';
-import { buildTerrain } from './level/build.js';
+import { createLevelRunner, tickLevelRunner, disposeLevelRunner, levelTimeline } from './level/runner.js';
+import { levelProgress } from './level/director.js';
+import { LEVEL01 } from './level/level01.js';
 import { createPool, updateBullets, collideBullets, clearPool, firstHit, kill } from './bullets.js';
 import { BulletRenderer } from './bulletmesh.js';
 import {
@@ -72,31 +73,8 @@ function setState(next) {
     renderOverlay();
 }
 
-// ── the placeholder level (Phase 5's director + level01 replace this) ───────
-// It is authored as DATA in the LEVELS_PLAN §2 shape, so the terrain loader it
-// exercises is the same one the real levels will use.
-function buildPlaceholderLevel() {
-    const CHUNK = 20 * TERRAIN_SCALE;          // fleshWall(len=20) in world units
-    const terrainEntries = [];
-    for (let x = 0; x * CHUNK < 400 + 60; x++) {
-        terrainEntries.push({ chunk: 'fleshWall', atX: x * CHUNK, y: PLAY_MIN_Y, args: [20, 6, 1] });
-        terrainEntries.push({ chunk: 'fleshWall', atX: x * CHUNK, y: PLAY_MAX_Y, args: [20, 6, -1] });
-    }
-
-    const level = {
-        id: 'placeholder',
-        name: 'TEST SCROLL',
-        scrollSpeed: 2.5,
-        length: 400,
-        scrollLocked: false,
-        backgroundLayers: [],
-        terrain: terrainEntries,
-        group: new THREE.Group()
-    };
-    scene.add(level.group);
-    buildTerrain(level, level.group, world.terrain);
-    return level;
-}
+// ── the active level runner (built at boot from LEVEL01) ────────────────────
+let runner = null;
 
 // ── debug: draw the collision boxes. The whole point of Phase 3 is that these
 //    line up with the art, and the only way to know is to look at them.
@@ -125,32 +103,6 @@ function updateTerrainWires() {
         w.visible = true;
         w.scale.set(b.maxX - b.minX, b.maxY - b.minY, 1);
         w.position.set((b.minX + b.maxX) / 2, (b.minY + b.maxY) / 2, 0.6);
-    }
-}
-
-// ── the Phase-2 test wave: five drones, then a gunpod, on a loop. Phase 5's
-//    level director makes this data instead of code.
-let waveT = 0;
-let waveN = 0;
-function updateTestWaves(dt) {
-    waveT -= dt;
-    if (waveT > 0) return;
-    waveT = 4.5;
-    waveN++;
-
-    const x = spawnX(2);
-    if (waveN % 3 === 0) {
-        spawnEnemy(world.enemies, 'gunpod', { x, y: 5 + Math.random() * 6 });
-    } else {
-        // A chain of five, staggered in x so they arrive as a sentence.
-        const baseY = 4 + Math.random() * 8;
-        for (let i = 0; i < 5; i++) {
-            spawnEnemy(world.enemies, 'drone', {
-                x: x + i * 1.6,
-                y: baseY,
-                patternState: { amp: 1.6, freq: 0.45, baseY }
-            });
-        }
     }
 }
 
@@ -290,7 +242,12 @@ function renderDebug() {
         + '   hull ' + player.hull.toFixed(0) + '/' + player.maxHull + '\n' +
         'enemies  ' + world.enemies.live + '   bullets ' + world.bullets.live
         + ' / ' + world.enemyBullets.live + '\n' +
-        'fps      ' + fps.toFixed(0) + '   draws ' + lastDrawCalls;
+        'witness  L' + (world.witness ? world.witness.level : 0)
+        + ' ' + (world.witness ? world.witness.state : '') + '\n' +
+        'fps      ' + fps.toFixed(0) + '   draws ' + lastDrawCalls + '\n' +
+        (godMode ? '*** GOD MODE — score not recorded ***\n' : '') +
+        'next     ' + (runner ? levelTimeline(runner, 4)
+            .map((tr) => tr.type + '@' + tr.atX).join('  ') : '');
 }
 
 let lastDrawCalls = 0;
@@ -301,11 +258,9 @@ let pickupFlash = '';
 let pickupFlashT = 0;
 
 // ── lifecycle ──────────────────────────────────────────────────────────────
-function startRun() {
+function startRun(atX = 0) {
     world.lives = START_LIVES;
     world.score = 0;
-    waveT = 1.5;
-    waveN = 0;
     clearPool(world.bullets);
     clearPool(world.enemyBullets);
     clearEnemies(world.enemies);
@@ -315,7 +270,9 @@ function startRun() {
     clearShake();
     world.deaths = 0;
     world.diedSinceCheckpoint = false;
-    setScrollX(0);
+    // Re-arm the whole level from the start (or from ?x= for authoring).
+    world.director.reset(atX);
+    setScrollX(atX);
     respawnPlayer(player, playerBounds().minX + 4, PLAY_Y);
     player.lives = START_LIVES;
     refreshPerLife(world.drones, player);        // the Ghost's phase charge
@@ -342,7 +299,6 @@ function respawnAfterDeath() {
     clearEnemies(world.enemies);
     clearFx();
     clearShake();
-    waveT = 2.0;
 
     const backTo = lastCheckpointX();
     setScrollX(backTo);
@@ -368,7 +324,11 @@ function tickPlaying(dt) {
     world.scrollX = scrollX;
     world.bounds = playerBounds();
 
-    updateTestWaves(dt);
+    tickLevelRunner(runner, dt, scrollX);
+    // ?god=1: hold invulnerability so the ship survives tuning runs. Scores are
+    // not recorded and the HUD is watermarked (LEVELS_PLAN §8) so a god run can
+    // never be mistaken for a real one.
+    if (godMode) player.invuln = Math.max(player.invuln, 0.1);
     updatePlayer(player, dt, input, world);
     updateDrones(world.drones, dt, player, world, input);
     updateEnemies(world.enemies, dt, world);
@@ -389,6 +349,17 @@ function tickPlaying(dt) {
     updateBullets(world.enemyBullets, dt, cullBox, null);
 
     resolveCollisions(dt);
+
+    // Phase 6 replaces this with the real boss handoff. For Phase 5 the boss
+    // trigger just holds the scroll (bible dread beat) and the end trigger
+    // clears the level so the whole data path is exercised end to end.
+    if (pendingBoss) { pendingBoss = null; world.bossActive = true; }
+    if (levelCleared) { levelCleared = false; onLevelClear(); }
+}
+
+function onLevelClear() {
+    world.score += 5000;                        // levelClearBonus (Phase 7 tallies it)
+    setState(STATE.GAMEOVER);                   // Phase 9A: -> next level instead
 }
 
 function frame() {
@@ -417,7 +388,7 @@ function frame() {
         case STATE.TITLE:
             if (consumeAnyKey()) {
                 initAudio();                        // G2: needs a user gesture
-                startRun();
+                startRun(startAtX);
             }
             break;
 
@@ -488,7 +459,6 @@ export function boot(domRefs) {
     world.enemyBullets = createPool(256);
     world.enemies = createEnemyPool(64);
     world.terrain = new Terrain();
-    world.level = buildPlaceholderLevel();   // needs world.terrain to exist
     world.score = 0;
     world.lives = START_LIVES;
     world.state = state;
@@ -515,15 +485,34 @@ export function boot(domRefs) {
     world.flashPickup = (label) => { pickupFlash = label; pickupFlashT = 1.5; };
     world.onEnemyKilled = () => {};
 
+    // ── the level. Phase 5 ships Level 01; Phase 9A adds the campaign selector.
+    world.level = LEVEL01;
+    runner = createLevelRunner(LEVEL01, scene, world);
+    runner.onDialogue = (id) => { if (debugOn) console.log('[dialogue] ' + id); };
+    runner.onBoss = (id) => { pendingBoss = id; };     // Phase 6 hands off here
+    runner.onEnd = () => { levelCleared = true; };
+
+    // ── authoring tools (LEVELS_PLAN §8): ?x= start scrolled, ?god=1 invincible.
+    const params = new URLSearchParams(typeof location !== 'undefined' ? location.search : '');
+    startAtX = Math.max(0, Number(params.get('x')) || 0);
+    godMode = params.get('god') === '1';
+    if (params.has('debug')) debugOn = true;
+
     window.addEventListener('resize', onResize);
     window.__engineKit = { renderer, composer, scene };
     window.__gumoi = {
         world, getState, setState,
         debugText: () => (dom.debug ? dom.debug.textContent : ''),
-        setDebug: (on) => { debugOn = !!on; }
+        setDebug: (on) => { debugOn = !!on; },
+        timeline: () => levelTimeline(runner, 8)
     };
 
     setScrollX(0);
     renderOverlay();
     frame();
 }
+
+let pendingBoss = null;
+let levelCleared = false;
+let startAtX = 0;
+let godMode = false;

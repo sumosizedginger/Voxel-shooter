@@ -293,19 +293,19 @@ stage-lint spec (§7), authoring tools (§8). The level authored here is
 terrain is the bible's organic tunnel, its recovery pickups are Witness
 shards, and its cast/interrupt elite enemies land with story system S2 in
 Phase 9A (author their waves now with plain fire; S2 upgrades them).
-- [ ] `src/shmup/level/director.js` (import-clean core + spec): the FULL
+- [x] `src/shmup/level/director.js` (import-clean core + spec): the FULL
       trigger vocabulary from LEVELS_PLAN §2 (wave, pickup, checkpoint,
       speed, lock, dialogue no-op, boss, end), fired once each when
       `atX <= scrollX`; `reset(toX)` for checkpoint rewind (§Phase 3),
       including the `recoveryOnly` pickup flag (LEVELS_PLAN §5 F1).
-- [ ] `src/shmup/level/formations.js`: the formation library (LEVELS_PLAN §3).
-- [ ] `src/shmup/level/level01.js`: Level 01 authored per LEVELS_PLAN §4–§5
+- [x] `src/shmup/level/formations.js`: the formation library (LEVELS_PLAN §3).
+- [x] `src/shmup/level/level01.js`: Level 01 authored per LEVELS_PLAN §4–§5
       pacing/fairness + bible §04 content (~10–14 waves, 2 checkpoints with
       recovery shards, carrier cadence, lock gauntlet, pre-boss breather).
       Parallax: 2–3 far layers at z ∈ [−10, −30] with `userData.scrollRate`
       0.2–0.6 (ASSETS_PLAN §7), beige-organic palette.
-- [ ] `tests/stagelint.spec.mjs` (LEVELS_PLAN §7) + director spec.
-- [ ] Authoring tools (LEVELS_PLAN §8): `?stage=&x=` URL params, `?god=1`,
+- [x] `tests/stagelint.spec.mjs` (LEVELS_PLAN §7) + director spec.
+- [x] Authoring tools (LEVELS_PLAN §8): `?stage=&x=` URL params, `?god=1`,
       trigger timeline in the debug overlay.
 - **Done when:** Level 01 plays start → boss trigger with difficulty applied
   from `difficultyMultipliers()`, checkpoint rewind replays the right waves

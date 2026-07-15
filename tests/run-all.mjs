@@ -13,6 +13,8 @@ import { run as runAssets } from './assets.spec.mjs';
 import { run as runBullets } from './bullets.spec.mjs';
 import { run as runTerrain } from './terrain.spec.mjs';
 import { run as runArsenal } from './arsenal.spec.mjs';
+import { run as runDirector } from './director.spec.mjs';
+import { run as runStagelint } from './stagelint.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -50,6 +52,14 @@ async function main() {
     const arsenal = createSink('arsenal');
     runArsenal(arsenal);
     sinks.push(arsenal);
+
+    const director = createSink('director');
+    runDirector(director);
+    sinks.push(director);
+
+    const stagelint = createSink('stagelint');
+    runStagelint(stagelint);
+    sinks.push(stagelint);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');
