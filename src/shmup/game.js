@@ -39,6 +39,9 @@ import { createDrones, equipDrones, updateDrones, refreshPerLife } from './drone
 import { createPickups, updatePickups, clearPickups, clearBits } from './powerups.js';
 import { applySlug, decayStacks } from './hammer.js';
 import { tierProgress as pulseTierProgress } from './wavecannon.js';
+import {
+    createBoss01, updateBoss01, hitMouth, applySlowShot, disposeBoss01
+} from './bosses/boss01.js';
 
 export const STATE = {
     TITLE: 'TITLE',
@@ -127,12 +130,23 @@ function resolveCollisions(dt) {
         damageEnemy(world.enemies, e, dmg, world);
     });
 
+    // player shots -> boss mouths (a separate target list so the boss parts
+    // never touch the enemy pool's live-count; §Phase 6).
+    if (world.boss && !world.boss.dead) {
+        collideBullets(world.bullets, world.boss.mouths, (b, mouth) => {
+            hitMouth(mouth, b.dmg, world);
+        });
+    }
+
     if (!p.alive) return;
 
     // enemy shots -> the Vessel (CHIP damage, C2)
     const hit = firstHit(world.enemyBullets, p.x, p.y, p.r);
     if (hit && p.invuln <= 0) {
         sparkHit(hit.x, hit.y, 0xff80d0);
+        // A completed announcement's slow-shot stacks a slow (bible §04) as well
+        // as chipping — that's what makes interrupting them matter.
+        if (hit.isSlowShot) applySlowShot(world);
         kill(world.enemyBullets, hit);
         damagePlayer(p, hit.dmg, world);
     }
@@ -170,9 +184,15 @@ function renderOverlay() {
         dom.overlayTitle.textContent = 'PAUSED';
         dom.overlaySub.innerHTML = '<span class="dim">esc / p to resume</span>';
     } else if (state === STATE.GAMEOVER) {
-        dom.overlayTitle.textContent = 'GAME OVER';
-        dom.overlaySub.innerHTML = 'SCORE ' + world.score
-            + '<br><span class="dim">press any key</span>';
+        if (stageClear) {
+            dom.overlayTitle.textContent = 'STAGE CLEAR';
+            dom.overlaySub.innerHTML = 'THE BEIGE SLOPE &mdash; SCORE ' + world.score
+                + '<br><span class="dim">press any key</span>';
+        } else {
+            dom.overlayTitle.textContent = 'GAME OVER';
+            dom.overlaySub.innerHTML = 'SCORE ' + world.score
+                + '<br><span class="dim">press any key</span>';
+        }
     }
 }
 
@@ -226,6 +246,20 @@ function renderHud() {
         dom.pickupFlash.textContent = pickupFlashT > 0 ? pickupFlash : '';
         dom.pickupFlash.style.opacity = Math.min(1, pickupFlashT);
     }
+
+    // ── boss HP bar — visible only while the wall lives
+    if (dom.bossWrap) {
+        const b = world.boss;
+        const show = b && !b.dead;
+        dom.bossWrap.style.display = show ? 'block' : 'none';
+        if (show) {
+            dom.bossBar.style.width = Math.max(0, b.hp / b.maxHp * 100) + '%';
+            if (dom.bossName) {
+                const ph = b.phases[b._phaseKey];
+                dom.bossName.textContent = 'THE BEIGE SLOPE · ' + (ph ? ph.name : '');
+            }
+        }
+    }
 }
 
 function renderDebug() {
@@ -268,6 +302,9 @@ function startRun(atX = 0) {
     clearBits(world.pickups);
     clearFx();
     clearShake();
+    if (world.boss) { disposeBoss01(world.boss, scene); world.boss = null; }
+    pendingBoss = null;
+    stageClear = false;
     world.deaths = 0;
     world.diedSinceCheckpoint = false;
     // Re-arm the whole level from the start (or from ?x= for authoring).
@@ -299,6 +336,10 @@ function respawnAfterDeath() {
     clearEnemies(world.enemies);
     clearFx();
     clearShake();
+    // A boss fight lost rewinds to the pre-boss checkpoint (F4); tear the wall
+    // down so re-reaching the boss trigger builds a fresh one.
+    if (world.boss) { disposeBoss01(world.boss, scene); world.boss = null; }
+    pendingBoss = null;
 
     const backTo = lastCheckpointX();
     setScrollX(backTo);
@@ -348,18 +389,28 @@ function tickPlaying(dt) {
         (b) => sparkHit(b.x, b.y, 0x9fe8ff));
     updateBullets(world.enemyBullets, dt, cullBox, null);
 
+    // The boss owns the fight while it lives (ticked before collisions so its
+    // mouths and slow-shots are current when resolveCollisions runs).
+    if (world.boss) updateBoss01(world.boss, dt, world);
+
     resolveCollisions(dt);
 
-    // Phase 6 replaces this with the real boss handoff. For Phase 5 the boss
-    // trigger just holds the scroll (bible dread beat) and the end trigger
-    // clears the level so the whole data path is exercised end to end.
-    if (pendingBoss) { pendingBoss = null; world.bossActive = true; }
-    if (levelCleared) { levelCleared = false; onLevelClear(); }
+    // The boss trigger hands control to the boss module.
+    if (pendingBoss === 'boss01') {
+        pendingBoss = null;
+        if (world.boss) disposeBoss01(world.boss, scene);
+        createBoss01(scene, world);
+    }
+    // The `end` trigger fires ~14u after the boss trigger; ignore it until the
+    // wall is actually down (world.onBossCleared drives the real clear).
+    levelCleared = false;
 }
 
 function onLevelClear() {
     world.score += 5000;                        // levelClearBonus (Phase 7 tallies it)
-    setState(STATE.GAMEOVER);                   // Phase 9A: -> next level instead
+    // Phase 9A routes this to the next level; for now it's a stage-clear screen.
+    stageClear = true;
+    setState(STATE.GAMEOVER);
 }
 
 function frame() {
@@ -484,6 +535,10 @@ export function boot(domRefs) {
     world.damageEnemy = (e, dmg) => damageEnemy(world.enemies, e, dmg, world);
     world.flashPickup = (label) => { pickupFlash = label; pickupFlashT = 1.5; };
     world.onEnemyKilled = () => {};
+    // The wall front is lethal (bible §04: pinned by slows, the wall reaches you).
+    world.killPlayerByWall = () => killPlayer(player, world, true);
+    // The boss module calls this when the wall finishes its death throes.
+    world.onBossCleared = () => onLevelClear();
 
     // ── the level. Phase 5 ships Level 01; Phase 9A adds the campaign selector.
     world.level = LEVEL01;
@@ -514,5 +569,6 @@ export function boot(domRefs) {
 
 let pendingBoss = null;
 let levelCleared = false;
+let stageClear = false;
 let startAtX = 0;
 let godMode = false;

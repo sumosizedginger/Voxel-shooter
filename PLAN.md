@@ -313,7 +313,7 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
   director specs pass.
 
 ### Phase 6 — Boss 01: The Beige Slope
-- [ ] `src/shmup/bosses/boss01.js`: the wall (bible §04 boss block is the
+- [x] `src/shmup/bosses/boss01.js`: the wall (bible §04 boss block is the
       spec — advancing wall, mouth array, announced-emotion casts, slow
       stacking, three phases including the three-wall split). Structure: a
       state machine of named phases with `{enter, update(dt), exit, hpGate}`;
@@ -322,7 +322,7 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
       architecture maps onto the mouth array directly. The mouth-cast
       announcements use S2 when it lands (Phase 9A); until then, plain
       timed telegraphs with the same timings.
-- [ ] Boss death: chained explosions over ~2.5s, big score, level end → level
+- [x] Boss death: chained explosions over ~2.5s, big score, level end → level
       clear tally (add `levelClearBonus` scoring) → back to TITLE (campaign
       flow lands in Phase 9A).
 - **Done when:** the full Level-01 run is winnable and losable, boss HP

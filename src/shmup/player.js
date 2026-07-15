@@ -50,8 +50,10 @@ export function createPlayer(scene, world) {
         invuln: 0,
         /** Set true by the Ghost Drone: eats exactly one lethal collision. */
         phaseCharges: 0,
-        /** Movement multiplier — slow-stacks (bible) push this down. */
+        /** Movement multiplier — slow-stacks (bible §04) push this down. */
         speedScale: 1,
+        /** Beige Slope slow: each stack is -15% for 2s; 4 stacks = pinned. */
+        slowStacks: [],
         /** Set by weapons that lock the Vessel (tier-3 Siren Pulse, 1.4 s). */
         locked: 0,
         /** Cloak Drone: enemies stop aiming at her while this is up. */
@@ -86,6 +88,7 @@ export function respawnPlayer(p, x, y = 8) {
     p.hull = MAX_HULL;
     p.invuln = INVULN_S;
     p.speedScale = 1;
+    p.slowStacks = [];
     p.locked = 0;
     p.cloaked = 0;
     p.swapT = 0;
@@ -143,6 +146,11 @@ export function killPlayer(p, world, fromCollision = false) {
     return true;
 }
 
+/** A slow-bullet landed: add one 2-second stack (bible §04). */
+export function addSlowStack(p, seconds = 2.0) {
+    p.slowStacks.push(seconds);
+}
+
 /** Tick the Vessel: move, shoot, and dress the rig. */
 export function updatePlayer(p, dt, input, world) {
     p._t += dt;
@@ -152,6 +160,18 @@ export function updatePlayer(p, dt, input, world) {
     if (p.invuln > 0) p.invuln -= dt;
     if (p.locked > 0) p.locked -= dt;
     if (p.cloaked > 0) p.cloaked -= dt;
+
+    // ── the Beige Slope slow (bible §04): each completed announcement that hits
+    //    stacks a 15% slow for 2s. Four stacks and she cannot move — the wall
+    //    catches up, and that is the failure state the boss is built around.
+    if (p.slowStacks.length) {
+        for (let i = p.slowStacks.length - 1; i >= 0; i--) {
+            p.slowStacks[i] -= dt;
+            if (p.slowStacks[i] <= 0) p.slowStacks.splice(i, 1);
+        }
+    }
+    const stacks = Math.min(4, p.slowStacks.length);
+    p.speedScale = Math.max(0, 1 - stacks * 0.15 - (stacks >= 4 ? 0.4 : 0));
 
     // ── movement
     const b = playerBounds();

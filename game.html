@@ -53,6 +53,25 @@
         .arow { display: flex; justify-content: space-between; gap: 14px; line-height: 1.7; }
         .val.sm { font-size: 13px; }
 
+        /* Boss HP bar — hidden until a boss owns the arena. */
+        #bossBarWrap {
+            position: fixed; left: 50%; top: 64px; transform: translateX(-50%);
+            z-index: 12; width: min(62vw, 720px); display: none; text-align: center;
+        }
+        #bossName {
+            font-size: 11px; letter-spacing: 0.3em; color: #d8b0b0; margin-bottom: 4px;
+            text-shadow: 0 0 10px rgba(255,60,90,0.5);
+        }
+        #bossTrack {
+            height: 10px; background: #1a1016; border: 1px solid #4a2030; border-radius: 5px;
+            overflow: hidden;
+        }
+        #bossBar {
+            height: 100%; width: 100%;
+            background: linear-gradient(90deg, #ff2a5a, #ff6a4a);
+            transition: width 0.15s linear;
+        }
+
         #pickupFlash {
             position: fixed; left: 50%; top: 38%; transform: translateX(-50%);
             z-index: 12; pointer-events: none;
@@ -125,6 +144,11 @@
         </div>
     </div>
 
+    <div id="bossBarWrap">
+        <div id="bossName">THE BEIGE SLOPE</div>
+        <div id="bossTrack"><div id="bossBar"></div></div>
+    </div>
+
     <div id="pickupFlash"></div>
 
     <div id="overlay">
@@ -149,7 +173,10 @@
             weapon: document.getElementById('hudWeapon'),
             witness: document.getElementById('hudWitness'),
             drones: document.getElementById('hudDrones'),
-            pickupFlash: document.getElementById('pickupFlash')
+            pickupFlash: document.getElementById('pickupFlash'),
+            bossWrap: document.getElementById('bossBarWrap'),
+            bossBar: document.getElementById('bossBar'),
+            bossName: document.getElementById('bossName')
         });
     </script>
 </body>
