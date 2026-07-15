@@ -15,6 +15,7 @@ import { run as runTerrain } from './terrain.spec.mjs';
 import { run as runArsenal } from './arsenal.spec.mjs';
 import { run as runDirector } from './director.spec.mjs';
 import { run as runStagelint } from './stagelint.spec.mjs';
+import { run as runComms } from './comms.spec.mjs';
 
 const unitOnly = process.argv.includes('--unit-only');
 
@@ -60,6 +61,10 @@ async function main() {
     const stagelint = createSink('stagelint');
     runStagelint(stagelint);
     sinks.push(stagelint);
+
+    const comms = createSink('comms');
+    runComms(comms);
+    sinks.push(comms);
 
     if (!unitOnly) {
         const { run: runSmoke } = await import('./smoke.spec.mjs');

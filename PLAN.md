@@ -330,13 +330,13 @@ Phase 9A (author their waves now with plain fire; S2 upgrades them).
   works (4 stacks = immobile, wall catches up, death).
 
 ### Phase 7 — HUD + game flow + scoring
-- [ ] HUD (DOM overlay in `game.html`, styled like the smoke test's `#hud`):
+- [x] HUD (DOM overlay in `game.html`, styled like the smoke test's `#hud`):
       score, hi-score (from `getScores()`), lives, **hull integrity bar**
       (C2), Siren Pulse gauge (three-segment, C3), Witness level, equipped
       Council drones + cooldowns. `reduceFlashing` setting: no full-screen
       flashes on death/beam when set. Comms line pool (story system S1,
       NARRATIVE_PLAN §4) is built in this phase.
-- [ ] Title screen (start, difficulty select writing `setSetting('difficulty')`),
+- [x] Title screen (start, difficulty select writing `setSetting('difficulty')`),
       pause overlay, game-over → continue (restart at checkpoint, score reset)
       or quit; stage-clear score tally; `addScore` on game over/clear.
 - **Done when:** a stranger could sit down, understand, and play a full credit

@@ -42,6 +42,11 @@ import { tierProgress as pulseTierProgress } from './wavecannon.js';
 import {
     createBoss01, updateBoss01, hitMouth, applySlowShot, disposeBoss01
 } from './bosses/boss01.js';
+import { getSetting, setSetting, getScores, addScore } from '../engine/settings.js';
+import {
+    createComms, pushComms, pushRandom, clearComms, updateComms,
+    DEATH_LINES, VICTORY_LINES
+} from './comms.js';
 
 export const STATE = {
     TITLE: 'TITLE',
@@ -53,6 +58,21 @@ export const STATE = {
 };
 
 const START_LIVES = 3;
+const DIFFICULTIES = ['easy', 'normal', 'hard'];
+
+// Menu edge detection: the movement axis is analog, so latch it into discrete
+// left/right ticks for the title + game-over menus.
+let _menuAxisLatched = false;
+function menuTick() {
+    const ax = input.axisX;
+    let dir = 0;
+    if (Math.abs(ax) > 0.5) {
+        if (!_menuAxisLatched) { dir = Math.sign(ax); _menuAxisLatched = true; }
+    } else {
+        _menuAxisLatched = false;
+    }
+    return dir;
+}
 const DEATH_HOLD_S = 1.4;      // the slow beat before the world restarts
 
 let state = STATE.TITLE;
@@ -179,19 +199,31 @@ function renderOverlay() {
     dom.overlay.style.display = show ? 'flex' : 'none';
     if (state === STATE.TITLE) {
         dom.overlayTitle.textContent = 'GUMOI';
-        dom.overlaySub.innerHTML = 'THE LATTICE BREAK<br><span class="dim">press any key</span>';
+        const diff = getSetting('difficulty');
+        const row = DIFFICULTIES.map((d) =>
+            (d === diff ? '<b class="sel">' + d.toUpperCase() + '</b>' : d.toUpperCase())
+        ).join('   ');
+        const hi = getScores()[0];
+        dom.overlaySub.innerHTML =
+            'THE LATTICE BREAK<br><br>'
+            + '<span class="dim">&larr; difficulty &rarr;</span><br>' + row + '<br><br>'
+            + (hi ? '<span class="dim">HI-SCORE ' + hi.score + '</span><br>' : '')
+            + '<span class="dim">fire / enter to launch</span>';
     } else if (state === STATE.PAUSED) {
         dom.overlayTitle.textContent = 'PAUSED';
         dom.overlaySub.innerHTML = '<span class="dim">esc / p to resume</span>';
     } else if (state === STATE.GAMEOVER) {
         if (stageClear) {
             dom.overlayTitle.textContent = 'STAGE CLEAR';
-            dom.overlaySub.innerHTML = 'THE BEIGE SLOPE &mdash; SCORE ' + world.score
-                + '<br><span class="dim">press any key</span>';
+            dom.overlaySub.innerHTML = 'THE BEIGE SLOPE<br><br>SCORE ' + world.score
+                + '<br><br><span class="dim">press any key</span>';
         } else {
             dom.overlayTitle.textContent = 'GAME OVER';
-            dom.overlaySub.innerHTML = 'SCORE ' + world.score
-                + '<br><span class="dim">press any key</span>';
+            const opt = (i, label) => (gameOverChoice === i
+                ? '<b class="sel">' + label + '</b>' : label);
+            dom.overlaySub.innerHTML = 'SCORE ' + world.score + '<br><br>'
+                + opt(0, 'CONTINUE') + '   ' + opt(1, 'QUIT')
+                + '<br><span class="dim">&larr;&rarr; select &middot; fire to confirm</span>';
         }
     }
 }
@@ -262,6 +294,22 @@ function renderHud() {
     }
 }
 
+function renderComms() {
+    if (!dom.comms) return;
+    const line = comms.current && comms.gap <= 0 ? comms.current : null;
+    if (line) {
+        dom.comms.style.display = 'block';
+        dom.comms.innerHTML = '<span class="who ' + line.who.toLowerCase() + '">'
+            + line.who + '</span> ' + escapeHtml(line.t);
+    } else {
+        dom.comms.style.display = 'none';
+    }
+}
+
+function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function renderDebug() {
     if (!dom.debug) return;
     dom.debug.style.display = debugOn ? 'block' : 'none';
@@ -302,6 +350,7 @@ function startRun(atX = 0) {
     clearBits(world.pickups);
     clearFx();
     clearShake();
+    clearComms(comms);
     if (world.boss) { disposeBoss01(world.boss, scene); world.boss = null; }
     pendingBoss = null;
     stageClear = false;
@@ -407,9 +456,21 @@ function tickPlaying(dt) {
 }
 
 function onLevelClear() {
-    world.score += 5000;                        // levelClearBonus (Phase 7 tallies it)
-    // Phase 9A routes this to the next level; for now it's a stage-clear screen.
+    world.score += 5000;                        // levelClearBonus
     stageClear = true;
+    if (!godMode) addScore({ score: world.score, hero: 'GUMOI' });
+    pushComms(comms, 'L01_banter');             // placeholder victory beat
+    pushRandom(comms, VICTORY_LINES);
+    // Phase 9A routes this to the next level in the campaign.
+    setState(STATE.GAMEOVER);
+}
+
+/** Lives exhausted. Record the run, remember where a continue would resume. */
+function enterGameOver() {
+    stageClear = false;
+    gameOverChoice = 0;                         // default: CONTINUE
+    continueX = lastCheckpointX();
+    if (!godMode) addScore({ score: world.score, hero: 'GUMOI' });
     setState(STATE.GAMEOVER);
 }
 
@@ -435,13 +496,26 @@ function frame() {
     updateInput(dt);
     if (input.debugPressed) debugOn = !debugOn;
 
+    const confirm = input.firePressed || input.skipPressed;
+
     switch (state) {
-        case STATE.TITLE:
-            if (consumeAnyKey()) {
+        case STATE.TITLE: {
+            const d = menuTick();
+            if (d !== 0) {
+                const i = DIFFICULTIES.indexOf(getSetting('difficulty'));
+                const ni = Math.max(0, Math.min(DIFFICULTIES.length - 1, i + d));
+                setSetting('difficulty', DIFFICULTIES[ni]);
+                sfx.uiMove();
+                renderOverlay();
+            }
+            if (confirm) {
                 initAudio();                        // G2: needs a user gesture
+                sfx.uiConfirm();
                 startRun(startAtX);
             }
+            consumeAnyKey();
             break;
+        }
 
         case STATE.PLAYING:
             if (input.pausePressed) {
@@ -463,22 +537,47 @@ function frame() {
             if (stateT >= DEATH_HOLD_S) {
                 world.lives--;
                 if (world.lives <= 0) {
-                    setState(STATE.GAMEOVER);
+                    enterGameOver();
                 } else {
                     respawnAfterDeath();
                 }
             }
             break;
 
-        case STATE.GAMEOVER:
-            if (stateT > 0.6 && consumeAnyKey()) setState(STATE.TITLE);
+        case STATE.GAMEOVER: {
+            if (stateT <= 0.6) { consumeAnyKey(); break; }
+            if (stageClear) {
+                // Stage clear: press anything to return to the title (Phase 9A
+                // routes this to the next level in the campaign).
+                if (confirm || consumeAnyKey()) setState(STATE.TITLE);
+                break;
+            }
+            // Game over: CONTINUE (restart at the checkpoint, score reset) / QUIT.
+            const d = menuTick();
+            if (d !== 0) { gameOverChoice = 1 - gameOverChoice; sfx.uiMove(); renderOverlay(); }
+            if (confirm) {
+                if (gameOverChoice === 0) {
+                    sfx.uiConfirm();
+                    startRun(continueX);           // continue from the last checkpoint
+                } else {
+                    setState(STATE.TITLE);
+                }
+            }
+            consumeAnyKey();
             break;
+        }
 
         default:
             break;
     }
 
     consumeAnyKey();
+    // Comms advance while playing or during the death beat; the skip key cuts a
+    // talky line short so an intro never holds a player hostage.
+    if (state === STATE.PLAYING || state === STATE.DEATH) {
+        updateComms(comms, dt, input.skipPressed);
+    }
+    renderComms();
     particles.update(dt);
     updateFx(dt);
     bulletFx.update([world.bullets, world.enemyBullets]);
@@ -519,6 +618,7 @@ export function boot(domRefs) {
     // Callbacks the systems fire back into the shell.
     world.onPlayerDied = () => {
         orphanWitness(world.witness);       // it detaches and drifts; it never dies
+        pushRandom(comms, DEATH_LINES);     // "the witness is still here. Restart."
         setState(STATE.DEATH);
     };
     world.onEnemyShot = () => sfx.enemyShoot();
@@ -543,7 +643,7 @@ export function boot(domRefs) {
     // ── the level. Phase 5 ships Level 01; Phase 9A adds the campaign selector.
     world.level = LEVEL01;
     runner = createLevelRunner(LEVEL01, scene, world);
-    runner.onDialogue = (id) => { if (debugOn) console.log('[dialogue] ' + id); };
+    runner.onDialogue = (id) => { pushComms(comms, id); };   // S1 comms lines
     runner.onBoss = (id) => { pendingBoss = id; };     // Phase 6 hands off here
     runner.onEnd = () => { levelCleared = true; };
 
@@ -570,5 +670,8 @@ export function boot(domRefs) {
 let pendingBoss = null;
 let levelCleared = false;
 let stageClear = false;
+let gameOverChoice = 0;         // 0 = CONTINUE, 1 = QUIT
+let continueX = 0;
 let startAtX = 0;
 let godMode = false;
+let comms = createComms();

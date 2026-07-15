@@ -39,8 +39,8 @@ await page.setViewport({ width: 1280, height: 720 });
 
 await page.goto(server.url + page_path + query, { waitUntil: 'networkidle0', timeout: 60000 });
 await sleep(400);
-await page.keyboard.press('Enter');           // clear the start gate
-await sleep(300);
+const noStart = args.includes('--nostart');
+if (!noStart) { await page.keyboard.press('Enter'); await sleep(300); }   // clear the start gate
 for (const k of taps) { await page.keyboard.press(k); await sleep(120); }
 for (const k of keys) await page.keyboard.down(k);
 await sleep(waitMs);
